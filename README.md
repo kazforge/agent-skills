@@ -12,23 +12,24 @@ are documented roles, not a directory hierarchy or a registry.
 
 | Concern | Purpose and location |
 | --- | --- |
-| **Core workflow skills** | Repository-agnostic planning, review and implementation instructions in `skills/<name>/SKILL.md`. `implementation-planning` has landed; the remaining Core extractions are in progress. |
+| **Core workflow skills** | Repository-agnostic planning, review and implementation instructions in `skills/<name>/SKILL.md`. `implementation-planning`, `design-review` and `plan-review` have landed; the remaining Core extraction is in progress. |
 | **Optional support skills** | Convenient, independently usable helpers in the same `skills/<name>/SKILL.md` layout. They may rely on particular tools or support conventions. |
 | **Harness/distribution support** | OpenCode invocation wrappers in `commands/*.md` and local symlink installation in `setup.sh`. Neither defines Core policy nor is required by Core semantics. |
 
-The Core skill available so far, plus the optional support skills:
+The Core skills available so far, plus the optional support skills:
 
 | Skill | Purpose |
 | --- | --- |
 | [implementation-planning](skills/implementation-planning/SKILL.md) | Core: turn a requested outcome into a repository-grounded implementation approach for one increment. |
+| [design-review](skills/design-review/SKILL.md) | Core: challenge whether a proposed design is sound, simple, repository-compatible and justified against simpler alternatives. |
+| [plan-review](skills/plan-review/SKILL.md) | Core: assess whether an implementation approach is executable without material guessing or harmful over-specification. |
 | [branch-name](skills/branch-name/SKILL.md) | Propose a branch name without creating it. |
 | [commit-message](skills/commit-message/SKILL.md) | Propose a Conventional Commits message without committing. |
 | [address-pr-comments](skills/address-pr-comments/SKILL.md) | Assess and address GitHub PR review comments. |
 | [pr-quality-triage](skills/pr-quality-triage/SKILL.md) | Investigate PR CI and Sonar findings and fix applicable issues. |
 | [handoff](skills/handoff/SKILL.md) | Carry conversation context into another session. |
 
-The remaining Core extractions in KAZ-185–186 belong alongside these skills:
-`skills/design-review/SKILL.md`, `skills/plan-review/SKILL.md`,
+The remaining Core extraction in KAZ-186 belongs alongside these skills:
 `skills/implementation/SKILL.md` and `skills/implementation-review/SKILL.md`.
 These are destinations, not implemented skills or mandatory workflow stages.
 KAZ-187's fresh-review fallback belongs in support guidance: a small skill or
