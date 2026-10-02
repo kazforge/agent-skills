@@ -29,13 +29,16 @@ The Core skills available so far, plus the optional support skills:
 | [commit-message](skills/commit-message/SKILL.md) | Propose a Conventional Commits message without committing. |
 | [address-pr-comments](skills/address-pr-comments/SKILL.md) | Assess and address GitHub PR review comments. |
 | [pr-quality-triage](skills/pr-quality-triage/SKILL.md) | Investigate PR CI and Sonar findings and fix applicable issues. |
-| [handoff](skills/handoff/SKILL.md) | Carry conversation context into another session. |
 
-KAZ-187's fresh-review fallback remains support guidance: a small skill or
-reference here, or inline guidance in the review skills if a separate helper
-adds no value. Core skills stay independently usable and are not mandatory
-workflow stages: `implementation-review` stands alone, and `implementation`
-requests it only when the environment supports an independent context.
+Review independence is a desired property, not a harness requirement. Each review
+skill carries its own fresh-session fallback: when the active session cannot
+provide an independent reviewer context, the review moves to a fresh session
+carrying only the review contract — review type, source, requested outcome and
+acceptance intent, repository access, and how to return the result — never the
+authoring session's reasoning, conclusions or narrative. Core skills stay
+independently usable and are not mandatory workflow stages: `implementation-review`
+stands alone, and `implementation` requests it only when the environment supports
+an independent context.
 
 ## Consumer repositories own engineering truth
 
@@ -49,10 +52,6 @@ follow that repository's evidence and guidance; they do not supply replacement
 policy. Requested outcomes and acceptance criteria come from the user or work
 item, not from this collection. Core must not assume a stack, tracker, harness
 launcher or fixed scratch path.
-
-The existing `handoff` skill writes to `.agentWork/.session/`, and this repository
-ignores that path. This is current support behavior only, not a Core contract or
-a requirement for consumers. Do not assume another repository ignores it.
 
 ## Local setup
 

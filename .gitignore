@@ -21,6 +21,3 @@
 
 # Idea
 /.idea/
-
-# Agent session artifacts
-/.agentWork/.session/

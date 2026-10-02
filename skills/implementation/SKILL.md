@@ -80,7 +80,8 @@ optional context at most.
 
 Fresh context that did not author the change is the desired assurance property, not a required
 subagent or session mechanism. Use whatever isolation the environment allows, and state the
-assurance limit when the review shares context with the implementation.
+assurance limit when the review shares context with the implementation. When the environment
+cannot run an independent context, use the fresh-session fallback in `implementation-review`.
 
 If the review reports material findings:
 

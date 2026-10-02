@@ -44,6 +44,21 @@ conclusions or summary. Treat this as a desired property of the review, not as a
 harness mechanism: perform the review with whatever isolation the active session allows, and
 state the assurance limit when the review shares context with the design's author.
 
+## Fresh-session fallback
+
+When the active session cannot provide an independent reviewer context, hand the review to a
+fresh session instead of reviewing in the authoring context. Start a new session with access
+to the consumer repository and pass only:
+
+- the review type and skill to follow: design review;
+- the design source: the design text or an accessible document the reviewer can open;
+- the requested outcome and acceptance intent, when supplied;
+- how to return the result: findings and assessment reported in the session, no artifact.
+
+Carry no authoring-session reasoning, conclusions, narrative, hidden state or summarized review
+opinion. The fresh reviewer reads this skill and derives its own conclusions from the design and
+repository evidence, and reports **Unable to assess** when a required input is unavailable.
+
 ## Procedure
 
 1. Establish the review boundary: design source, requested outcome, repository evidence.
