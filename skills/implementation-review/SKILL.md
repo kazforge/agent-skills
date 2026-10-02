@@ -49,6 +49,23 @@ authoring session's conclusions. Treat this as a desired property of the review,
 harness mechanism: use whatever isolation the active session allows, and state the assurance limit
 when the review shares context with the implementation.
 
+## Fresh-session fallback
+
+When the active session cannot provide an independent reviewer context, hand the review to a fresh
+session instead of reviewing in the authoring context. Start a new session with access to the
+consumer repository and pass only:
+
+- the review type and skill to follow: implementation review;
+- the requested outcome and acceptance intent;
+- the change set when supplied as a diff, pull request, commit range or base branch, or enough
+  state for the reviewer to establish it;
+- how to return the result: findings and verdict reported in the session, no artifact.
+
+Carry no authoring-session reasoning, conclusions, narrative, hidden state or summarized review
+opinion. The fresh reviewer reads this skill, establishes the change-set boundary, derives its own
+conclusions from the change and repository evidence, and reports **Blocked** when a required input
+is unavailable.
+
 ## Procedure
 
 1. Resolve the requested outcome and acceptance intent from the task inputs.
