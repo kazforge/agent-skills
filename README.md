@@ -12,7 +12,7 @@ are documented roles, not a directory hierarchy or a registry.
 
 | Concern | Purpose and location |
 | --- | --- |
-| **Core workflow skills** | Repository-agnostic planning, review and implementation instructions in `skills/<name>/SKILL.md`. `implementation-planning`, `design-review` and `plan-review` have landed; the remaining Core extraction is in progress. |
+| **Core workflow skills** | Repository-agnostic planning, review and implementation instructions in `skills/<name>/SKILL.md`. `implementation-planning`, `design-review`, `plan-review`, `implementation` and `implementation-review` have landed. |
 | **Optional support skills** | Convenient, independently usable helpers in the same `skills/<name>/SKILL.md` layout. They may rely on particular tools or support conventions. |
 | **Harness/distribution support** | OpenCode invocation wrappers in `commands/*.md` and local symlink installation in `setup.sh`. Neither defines Core policy nor is required by Core semantics. |
 
@@ -23,18 +23,19 @@ The Core skills available so far, plus the optional support skills:
 | [implementation-planning](skills/implementation-planning/SKILL.md) | Core: turn a requested outcome into a repository-grounded implementation approach for one increment. |
 | [design-review](skills/design-review/SKILL.md) | Core: challenge whether a proposed design is sound, simple, repository-compatible and justified against simpler alternatives. |
 | [plan-review](skills/plan-review/SKILL.md) | Core: assess whether an implementation approach is executable without material guessing or harmful over-specification. |
+| [implementation](skills/implementation/SKILL.md) | Core: implement the requested outcome as the smallest coherent change, run repository-provided verification, and request independent review. |
+| [implementation-review](skills/implementation-review/SKILL.md) | Core: independently judge whether an actual change-set satisfies the requested outcome, acceptance intent and repository contracts. |
 | [branch-name](skills/branch-name/SKILL.md) | Propose a branch name without creating it. |
 | [commit-message](skills/commit-message/SKILL.md) | Propose a Conventional Commits message without committing. |
 | [address-pr-comments](skills/address-pr-comments/SKILL.md) | Assess and address GitHub PR review comments. |
 | [pr-quality-triage](skills/pr-quality-triage/SKILL.md) | Investigate PR CI and Sonar findings and fix applicable issues. |
 | [handoff](skills/handoff/SKILL.md) | Carry conversation context into another session. |
 
-The remaining Core extraction in KAZ-186 belongs alongside these skills:
-`skills/implementation/SKILL.md` and `skills/implementation-review/SKILL.md`.
-These are destinations, not implemented skills or mandatory workflow stages.
-KAZ-187's fresh-review fallback belongs in support guidance: a small skill or
+KAZ-187's fresh-review fallback remains support guidance: a small skill or
 reference here, or inline guidance in the review skills if a separate helper
-adds no value.
+adds no value. Core skills stay independently usable and are not mandatory
+workflow stages: `implementation-review` stands alone, and `implementation`
+requests it only when the environment supports an independent context.
 
 ## Consumer repositories own engineering truth
 
