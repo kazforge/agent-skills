@@ -77,13 +77,13 @@ commands so changes take effect reliably.
 
 ## OpenCode plugin
 
-The repository is also loadable as an OpenCode plugin, so a checkout can be
-consumed without copying or symlinking skill files. The plugin is a thin package
-and runtime boundary only: `package.json` declares the package and `index.ts`
-is the single entrypoint. Workflow semantics stay in the `skills/<name>/SKILL.md`
-files and are not reimplemented as plugin code. Exposing the Core workflows
-through OpenCode-native commands and reviewer agents is in progress and not part
-of this package yet.
+The repository can be loaded as an OpenCode plugin, but that only establishes the
+package and runtime boundary: `package.json` declares the package and `index.ts`
+is the single entrypoint. Loading it does not yet make the `skills/` workflows
+available through the plugin. Until KAZ-196 exposes them through OpenCode-native
+plugin mechanisms, `setup.sh` remains the functional path for direct skill usage.
+Workflow semantics stay in the `skills/<name>/SKILL.md` files and are not
+reimplemented as plugin code.
 
 Install the entrypoint's runtime dependency once from the checkout:
 
@@ -91,8 +91,8 @@ Install the entrypoint's runtime dependency once from the checkout:
 npm install
 ```
 
-To load the plugin for local development, point an `opencode.jsonc` at the
-checkout directory, then restart OpenCode:
+To load the plugin boundary for local development, point an `opencode.jsonc` at
+the checkout directory, then restart OpenCode:
 
 ```jsonc
 {
