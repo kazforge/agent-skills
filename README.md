@@ -14,7 +14,7 @@ are documented roles, not a directory hierarchy or a registry.
 | --- | --- |
 | **Core workflow skills** | Repository-agnostic planning, review and implementation instructions in `skills/<name>/SKILL.md`. `implementation-planning`, `design-review`, `plan-review`, `implementation` and `implementation-review` have landed. |
 | **Optional support skills** | Convenient, independently usable helpers in the same `skills/<name>/SKILL.md` layout. They may rely on particular tools or support conventions. |
-| **Harness/distribution support** | OpenCode invocation wrappers in `commands/*.md`, the thin OpenCode plugin boundary in `index.ts`, and local symlink installation in `setup.sh`. None defines Core policy or is required by Core semantics. |
+| **Harness/distribution support** | The thin OpenCode plugin boundary in `index.ts` (which registers the Core skills and exposes each as a command), OpenCode invocation wrappers in `commands/*.md` for support skills, and local symlink installation in `setup.sh`. None defines Core policy or is required by Core semantics. |
 
 The Core skills available so far, plus the optional support skills:
 
@@ -77,13 +77,43 @@ commands so changes take effect reliably.
 
 ## OpenCode plugin
 
-The repository can be loaded as an OpenCode plugin, but that only establishes the
-package and runtime boundary: `package.json` declares the package and `index.ts`
-is the single entrypoint. Loading it does not yet make the `skills/` workflows
-available through the plugin. Until KAZ-196 exposes them through OpenCode-native
-plugin mechanisms, `setup.sh` remains the functional path for direct skill usage.
+The repository can be loaded as an OpenCode plugin. `package.json` declares the
+package and `index.ts` is the single entrypoint. Loading it registers the Core
+workflow skills from their packaged `skills/<name>/SKILL.md` files and exposes
+each one as an OpenCode-native command:
+
+| Command | Core skill |
+| --- | --- |
+| `/implementation-planning` | [implementation-planning](skills/implementation-planning/SKILL.md) |
+| `/design-review` | [design-review](skills/design-review/SKILL.md) |
+| `/plan-review` | [plan-review](skills/plan-review/SKILL.md) |
+| `/implementation` | [implementation](skills/implementation/SKILL.md) |
+| `/implementation-review` | [implementation-review](skills/implementation-review/SKILL.md) |
+
+Command arguments carry the requester's own words:
+
+```text
+/implementation-planning Add retry handling to the import job
+```
+
+Arguments are optional; when they are missing, the skill establishes the
+requested outcome as it normally would. No Linear, GitHub or other tracker is
+required to invoke a workflow. The command is a thin adapter: it selects the
+skill and passes the request through, so implementation authorization and
+repository-context discovery stay exactly with the skill contract.
+
+Command names intentionally match the skill IDs. OpenCode keeps one command
+registry shared by configuration, Markdown and plugin sources, and a later
+definition replaces an earlier command with the same name, so the collection
+avoids generic names such as `/plan` or `/review` that another source is likely
+to define. Do not add `commands/*.md` wrappers for Core workflows; they would
+collide with the plugin-provided commands.
+
 Workflow semantics stay in the `skills/<name>/SKILL.md` files and are not
-reimplemented as plugin code.
+reimplemented as plugin code. The plugin reads each skill's description from the
+same frontmatter rather than storing a second copy, so a command never becomes a
+second source of workflow truth. Reviewer agents and per-reviewer model routing
+are tracked separately.
 
 Install the entrypoint's runtime dependency once from the checkout:
 
@@ -91,8 +121,8 @@ Install the entrypoint's runtime dependency once from the checkout:
 npm install
 ```
 
-To load the plugin boundary for local development, point an `opencode.jsonc` at
-the checkout directory, then restart OpenCode:
+To load the plugin for local development, point an `opencode.jsonc` at the
+checkout directory, then restart OpenCode:
 
 ```jsonc
 {
@@ -101,21 +131,33 @@ the checkout directory, then restart OpenCode:
 }
 ```
 
-Loading the plugin is optional. Direct skill usage through `setup.sh` keeps
-working, and no consumer repository is required to install the plugin for its own
-correctness.
+Loading the plugin is optional, and no consumer repository is required to
+install it for its own correctness. `setup.sh` remains the path for Cursor and
+Codex skill linking until that distribution story is settled, but OpenCode no
+longer needs it once the plugin is configured.
 
 OpenCode loads a configured plugin directory from a root `index.ts`, so keep the
 entrypoint at the repository root. Run `npm test` and `npm run typecheck` to
-check the entrypoint contract and package contents.
+check the entrypoint contract, command registration and package contents.
+
+To verify the plugin path without the `setup.sh` symlinks, load it from a
+checkout and confirm the registry for the location: the five Core commands and
+the five Core skills should appear, for example through
+`opencode api get /api/command` and `opencode api get /api/skill` once a session
+exists. Running a command such as
+`/implementation-planning Add retry handling to the import job` submits the
+request with the `implementation-planning` skill selected, so the skill body is
+loaded into the session and the request text is preserved.
 
 ## Maintaining the collection
 
 Add a skill at `skills/<name>/SKILL.md` with descriptive `name` and `description`
 frontmatter, and document whether it is Core or optional support here. Keep Core
 instructions repository-agnostic; leave consumer facts and verification commands
-with the consumer. Add an OpenCode command wrapper only when useful for invocation,
-not as a prerequisite for the skill.
+with the consumer. The plugin registers every Core skill and exposes it as a
+command named after the skill, so no command wrapper is needed for Core. Add an
+OpenCode command wrapper only when useful for an optional support skill, not as a
+prerequisite for the skill.
 
 Prefer small instructional changes backed by real use. The OpenCode plugin
 boundary stays deliberately thin: no workflow DSL, registry, custom
