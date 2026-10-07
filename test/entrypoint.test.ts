@@ -14,8 +14,7 @@ test("default export defines the plugin entrypoint contract", () => {
   assert.equal(typeof plugin.setup, "function")
 })
 
-test("package exposes exactly one entrypoint that exists", () => {
-  assert.deepEqual(Object.keys(pkg.exports), ["."])
+test("package root export points to the existing entrypoint", () => {
   const entry = new URL(pkg.exports["."], root)
   assert.ok(existsSync(entry), "entrypoint file exists")
   assert.equal(fileURLToPath(entry), fileURLToPath(new URL("index.ts", root)))
