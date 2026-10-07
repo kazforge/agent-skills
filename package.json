@@ -1,0 +1,27 @@
+{
+  "name": "@kazforge/opencode-agent-skills",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenCode plugin that exposes the KazForge Agent Skills Core workflows.",
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "files": [
+    "index.ts",
+    "skills",
+    "commands",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@opencode/plugin": "2.0.24"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3"
+  }
+}

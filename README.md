@@ -3,7 +3,7 @@
 [`kazforge/agent-skills`](https://github.com/kazforge/agent-skills) is the canonical
 implementation repository for the KazForge Agent Skills Core project: small,
 reusable engineering workflows for coding agents, extracted from real projects.
-These are instructions, not a workflow runtime or an orchestration framework.
+These are instructions, not a workflow engine or an orchestration framework.
 
 ## Organization
 
@@ -14,7 +14,7 @@ are documented roles, not a directory hierarchy or a registry.
 | --- | --- |
 | **Core workflow skills** | Repository-agnostic planning, review and implementation instructions in `skills/<name>/SKILL.md`. `implementation-planning`, `design-review`, `plan-review`, `implementation` and `implementation-review` have landed. |
 | **Optional support skills** | Convenient, independently usable helpers in the same `skills/<name>/SKILL.md` layout. They may rely on particular tools or support conventions. |
-| **Harness/distribution support** | OpenCode invocation wrappers in `commands/*.md` and local symlink installation in `setup.sh`. Neither defines Core policy nor is required by Core semantics. |
+| **Harness/distribution support** | OpenCode invocation wrappers in `commands/*.md`, the thin OpenCode plugin boundary in `index.ts`, and local symlink installation in `setup.sh`. None defines Core policy or is required by Core semantics. |
 
 The Core skills available so far, plus the optional support skills:
 
@@ -75,6 +75,40 @@ destination directories and replaces same-named symlinks; inspect existing
 entries before running it. Restart OpenCode after changing installed skills or
 commands so changes take effect reliably.
 
+## OpenCode plugin
+
+The repository is also loadable as an OpenCode plugin, so a checkout can be
+consumed without copying or symlinking skill files. The plugin is a thin package
+and runtime boundary only: `package.json` declares the package and `index.ts`
+is the single entrypoint. Workflow semantics stay in the `skills/<name>/SKILL.md`
+files and are not reimplemented as plugin code. Exposing the Core workflows
+through OpenCode-native commands and reviewer agents is in progress and not part
+of this package yet.
+
+Install the entrypoint's runtime dependency once from the checkout:
+
+```sh
+npm install
+```
+
+To load the plugin for local development, point an `opencode.jsonc` at the
+checkout directory, then restart OpenCode:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": ["/absolute/path/to/agent-skills"]
+}
+```
+
+Loading the plugin is optional. Direct skill usage through `setup.sh` keeps
+working, and no consumer repository is required to install the plugin for its own
+correctness.
+
+OpenCode loads a configured plugin directory from a root `index.ts`, so keep the
+entrypoint at the repository root. Run `npm test` and `npm run typecheck` to
+check the entrypoint contract and package contents.
+
 ## Maintaining the collection
 
 Add a skill at `skills/<name>/SKILL.md` with descriptive `name` and `description`
@@ -83,6 +117,7 @@ instructions repository-agnostic; leave consumer facts and verification commands
 with the consumer. Add an OpenCode command wrapper only when useful for invocation,
 not as a prerequisite for the skill.
 
-Prefer small instructional changes backed by real use. This baseline introduces
-no registries, manifests, schemas, workflow DSLs, runtime APIs, package-manager
-infrastructure or adapter frameworks.
+Prefer small instructional changes backed by real use. The OpenCode plugin
+boundary stays deliberately thin: no workflow DSL, registry, custom
+orchestration runtime or adapter framework, and no package metadata beyond what
+the single plugin entrypoint requires.
