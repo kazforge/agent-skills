@@ -110,8 +110,10 @@ to define. Do not add `commands/*.md` wrappers for Core workflows; they would
 collide with the plugin-provided commands.
 
 Workflow semantics stay in the `skills/<name>/SKILL.md` files and are not
-reimplemented as plugin code. Reviewer agents and per-reviewer model routing are
-tracked separately.
+reimplemented as plugin code. The plugin reads each skill's description from the
+same frontmatter rather than storing a second copy, so a command never becomes a
+second source of workflow truth. Reviewer agents and per-reviewer model routing
+are tracked separately.
 
 Install the entrypoint's runtime dependency once from the checkout:
 
@@ -137,6 +139,15 @@ longer needs it once the plugin is configured.
 OpenCode loads a configured plugin directory from a root `index.ts`, so keep the
 entrypoint at the repository root. Run `npm test` and `npm run typecheck` to
 check the entrypoint contract, command registration and package contents.
+
+To verify the plugin path without the `setup.sh` symlinks, load it from a
+checkout and confirm the registry for the location: the five Core commands and
+the five Core skills should appear, for example through
+`opencode api get /api/command` and `opencode api get /api/skill` once a session
+exists. Running a command such as
+`/implementation-planning Add retry handling to the import job` submits the
+request with the `implementation-planning` skill selected, so the skill body is
+loaded into the session and the request text is preserved.
 
 ## Maintaining the collection
 

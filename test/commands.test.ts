@@ -3,7 +3,10 @@ import { readdirSync, readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import test from "node:test"
 
-import plugin from "../index.ts"
+import { Skill } from "@opencode/plugin"
+import { Session } from "@opencode/schema"
+
+import { coreCommands, readCoreSkills } from "../index.ts"
 
 const root = new URL("../", import.meta.url)
 
@@ -15,155 +18,19 @@ const coreSkillIds = [
   "implementation-review",
 ] as const
 
-interface PromptInput {
-  text: string
-  files?: readonly unknown[]
-  agents?: readonly unknown[]
-  skills?: readonly { id: string }[]
-  metadata?: Record<string, unknown>
-  delivery?: "steer" | "queue"
+type SendPrompt = Parameters<typeof coreCommands>[1]
+type CommandDefinition = ReturnType<typeof coreCommands>[number]
+type CommandInvocation = Parameters<CommandDefinition["execute"]>[0]
+type PromptInput = Parameters<SendPrompt>[0]
+
+/** Record prompts sent by command adapters. */
+function recordPrompts(): { prompts: PromptInput[]; send: SendPrompt } {
+  const prompts: PromptInput[] = []
+  return { prompts, send: async (input) => void prompts.push(input) }
 }
 
-interface CommandInvocation {
-  sessionID: string
-  prompt: PromptInput
-  delivery: "steer" | "queue"
-}
-
-interface RegisteredCommand {
-  name: string
-  description?: string
-  execute(input: CommandInvocation): Promise<void>
-}
-
-interface RegisteredSkill {
-  id: string
-  name: string
-  description?: string
-  path: string
-  content: string
-  autoinvoke?: boolean
-}
-
-interface SkillEditor {
-  list(): readonly RegisteredSkill[]
-  get(id: string): RegisteredSkill | undefined
-  add(skill: RegisteredSkill): void
-  update(id: string, update: (skill: RegisteredSkill) => void): void
-  remove(id: string): void
-}
-
-interface CommandEditor {
-  add(definition: RegisteredCommand): void
-}
-
-interface Stub {
-  commands: RegisteredCommand[]
-  skills: RegisteredSkill[]
-  prompts: unknown[]
-}
-
-/** Run the plugin against a recording context and return what it registered. */
-async function setup(seedSkills: RegisteredSkill[] = []): Promise<Stub> {
-  const commands: RegisteredCommand[] = []
-  const skills: RegisteredSkill[] = [...seedSkills]
-  const prompts: unknown[] = []
-
-  const context = {
-    command: {
-      transform: async (callback: (editor: CommandEditor) => void) => {
-        callback({ add: (definition) => commands.push(definition) })
-        return { dispose: async () => {} }
-      },
-    },
-    skill: {
-      transform: async (callback: (editor: SkillEditor) => void) => {
-        callback({
-          list: () => skills,
-          get: (id) => skills.find((skill) => skill.id === id),
-          add: (skill) => skills.push(skill),
-          update: (id, update) => {
-            const skill = skills.find((candidate) => candidate.id === id)
-            if (skill) update(skill)
-          },
-          remove: (id) => {
-            const index = skills.findIndex((skill) => skill.id === id)
-            if (index >= 0) skills.splice(index, 1)
-          },
-        })
-        return { dispose: async () => {} }
-      },
-    },
-    session: {
-      prompt: async (input: unknown) => {
-        prompts.push(input)
-        return input
-      },
-    },
-  }
-
-  await plugin.setup(context as never)
-  return { commands, skills, prompts }
-}
-
-test("each Core workflow is exposed as a command named after its skill", async () => {
-  const { commands } = await setup()
-
-  assert.deepEqual(
-    commands.map((command) => command.name).sort(),
-    [...coreSkillIds].sort(),
-  )
-  for (const command of commands) {
-    assert.ok(command.description, `${command.name} has a description`)
-  }
-})
-
-test("a command passes the request through and selects its skill", async () => {
-  const { commands, prompts } = await setup()
-  const command = commands.find((candidate) => candidate.name === "implementation-planning")
-  assert.ok(command)
-
-  const files = [{ uri: "file:///notes.md" }]
-  await command.execute({
-    sessionID: "ses_test",
-    prompt: { text: "KAZ-196", files, skills: [{ id: "design-review" }] },
-    delivery: "queue",
-  })
-
-  assert.deepEqual(prompts, [
-    {
-      text: "KAZ-196",
-      files,
-      skills: [{ id: "design-review" }, { id: "implementation-planning" }],
-      sessionID: "ses_test",
-      delivery: "queue",
-    },
-  ])
-})
-
-test("a command does not select its skill twice", async () => {
-  const { commands, prompts } = await setup()
-  const command = commands.find((candidate) => candidate.name === "implementation")
-  assert.ok(command)
-
-  await command.execute({
-    sessionID: "ses_test",
-    prompt: { text: "", skills: [{ id: "implementation" }] },
-    delivery: "steer",
-  })
-
-  assert.deepEqual(prompts, [
-    {
-      text: "",
-      skills: [{ id: "implementation" }],
-      sessionID: "ses_test",
-      delivery: "steer",
-    },
-  ])
-})
-
-test("Core skills are registered from their packaged files without frontmatter", async () => {
-  const { skills } = await setup()
+test("Core skills are registered from their packaged files without frontmatter", () => {
+  const skills = readCoreSkills()
 
   assert.deepEqual(
     skills.map((skill) => skill.id).sort(),
@@ -188,29 +55,76 @@ test("Core skills are registered from their packaged files without frontmatter",
   }
 })
 
-test("an already registered skill is refreshed in place, not duplicated", async () => {
-  const { skills } = await setup([
-    {
-      id: "implementation-planning",
-      name: "stale",
-      description: "stale",
-      path: "/stale/SKILL.md",
-      content: "stale",
-    },
-  ])
+test("each Core workflow is exposed as a command named after its skill", () => {
+  const commands = coreCommands(readCoreSkills(), async () => {})
 
-  const refreshed = skills.filter((skill) => skill.id === "implementation-planning")
-  assert.equal(refreshed.length, 1)
-  assert.notEqual(refreshed[0].content, "stale")
+  assert.deepEqual(
+    commands.map((command) => command.name).sort(),
+    [...coreSkillIds].sort(),
+  )
 })
 
-test("plugin commands do not collide with repository command wrappers", async () => {
-  const { commands } = await setup()
+test("command descriptions come from the skill frontmatter, not the plugin", () => {
+  const skills = readCoreSkills()
+  const commands = coreCommands(skills, async () => {})
+
+  for (const command of commands) {
+    const skill = skills.find((candidate) => candidate.id === command.name)
+    assert.ok(skill, `${command.name} has a matching skill`)
+    assert.ok(command.description, `${command.name} has a description`)
+    assert.equal(command.description, skill.description)
+  }
+})
+
+test("a command preserves the request and selects its skill", async () => {
+  const { prompts, send } = recordPrompts()
+  const command = coreCommands(readCoreSkills(), send).find(
+    (candidate) => candidate.name === "implementation-planning",
+  )
+  assert.ok(command)
+
+  const files = [{ uri: "file:///notes.md" }]
+  const invocation: CommandInvocation = {
+    sessionID: Session.ID.make("ses_test"),
+    prompt: { text: "KAZ-196", files, skills: [{ id: Skill.ID.make("design-review") }] },
+    delivery: "queue",
+  }
+
+  await command.execute(invocation)
+
+  assert.equal(prompts.length, 1)
+  assert.equal(prompts[0].text, "KAZ-196")
+  assert.deepEqual(prompts[0].files, files)
+  assert.equal(prompts[0].sessionID, "ses_test")
+  assert.equal(prompts[0].delivery, "queue")
+  assert.deepEqual(prompts[0].skills, [
+    { id: "design-review" },
+    { id: "implementation-planning" },
+  ])
+})
+
+test("a command does not select its skill twice", async () => {
+  const { prompts, send } = recordPrompts()
+  const command = coreCommands(readCoreSkills(), send).find(
+    (candidate) => candidate.name === "implementation",
+  )
+  assert.ok(command)
+
+  await command.execute({
+    sessionID: Session.ID.make("ses_test"),
+    prompt: { text: "", skills: [{ id: Skill.ID.make("implementation") }] },
+    delivery: "steer",
+  })
+
+  assert.deepEqual(prompts[0].skills, [{ id: "implementation" }])
+})
+
+test("plugin commands do not collide with repository command wrappers", () => {
   const wrappers = readdirSync(new URL("commands/", root))
     .filter((file) => file.endsWith(".md"))
     .map((file) => file.slice(0, -".md".length))
 
-  for (const command of commands) {
+  for (const command of coreCommands(readCoreSkills(), async () => {})) {
     assert.ok(
       !wrappers.includes(command.name),
       `${command.name} does not shadow the ${command.name}.md wrapper`,
