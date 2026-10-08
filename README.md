@@ -144,8 +144,17 @@ a deny-all base with `read`, `grep`, `glob` and `skill` allowed, secrets denied,
 and for the implementation reviewer `shell: ask` so each repository verification
 command needs explicit approval. The same rule set is pinned on the reviewer
 session (session rules are evaluated after agent rules), so globally configured
-permission rules cannot widen a reviewer into mutation. The reviewer session
-never inherits grants saved in the authoring session.
+permission rules cannot widen a reviewer into mutation, and the deny-all base is
+a hard deny for mutation that saved grants cannot override.
+
+Verification approval is enforced separately: OpenCode appends saved
+project-level allow grants after agent and session rules, and a saved shell
+allow would otherwise upgrade `shell: ask` to allow. A native
+`permission.evaluate` hook scoped to the implementation reviewer and the shell
+action forces the evaluation back to `ask` after that merge, so previously
+saved approvals still produce an approval prompt per reviewer command. The hook
+never relaxes an evaluation: it only changes an allow to ask, while denies and
+asks pass through unchanged.
 
 If the reviewer agent is not registered, or the reviewer session cannot be
 created or receive the contract, the review is not performed in the authoring

@@ -6,9 +6,11 @@ import { Session } from "@opencode/schema"
 
 import {
   applyReviewerAgents,
+  applyReviewerPermissionPolicy,
   readCoreSkills,
   reviewContract,
   reviewerAgents,
+  reviewerPermissionPolicy,
   reviewerPermissions,
   startReview,
   type AgentEditor,
@@ -228,6 +230,102 @@ test("pinned session rules keep the reviewer profile against wider host rules", 
   assert.equal(effectFor(withHostRules, "shell", "npm test"), "deny")
   assert.equal(effectFor(withHostRules, "read", "src/index.ts"), "allow")
   assert.equal(effectFor(withHostRules, "read", ".env"), "deny")
+})
+
+test("the permission hook keeps verification shell at ask when a saved allow exists", () => {
+  const evaluation = {
+    sessionID: "ses_reviewer",
+    agent: "kazforge-implementation-reviewer",
+    action: "shell",
+    resources: ["npm test"],
+    // OpenCode has already merged a saved project-level allow and computed allow.
+    effect: "allow" as const,
+  }
+
+  reviewerPermissionPolicy(evaluation)
+
+  assert.equal(evaluation.effect, "ask")
+})
+
+test("the session-aware policy resolves the reviewer agent when only a session is named", async () => {
+  const evaluation = {
+    sessionID: "ses_reviewer",
+    action: "shell",
+    resources: ["npm test"],
+    effect: "allow" as const,
+  }
+
+  await applyReviewerPermissionPolicy(evaluation, async () => "kazforge-implementation-reviewer")
+
+  assert.equal(evaluation.effect, "ask")
+})
+
+test("the session-aware policy leaves non-reviewer sessions and resolution failures alone", async () => {
+  const otherSession = {
+    sessionID: "ses_build",
+    action: "shell",
+    resources: ["npm test"],
+    effect: "allow" as const,
+  }
+  await applyReviewerPermissionPolicy(otherSession, async () => "build")
+  assert.equal(otherSession.effect, "allow")
+
+  const failedLookup = {
+    sessionID: "ses_missing",
+    action: "shell",
+    resources: ["npm test"],
+    effect: "allow" as const,
+  }
+  await applyReviewerPermissionPolicy(failedLookup, async () => {
+    throw new Error("session not found")
+  })
+  assert.equal(failedLookup.effect, "allow")
+})
+
+test("the permission hook leaves read-only reviewers, denies and other actions alone", () => {
+  const designShell = {
+    agent: "kazforge-design-reviewer",
+    action: "shell",
+    resources: ["npm test"],
+    effect: "allow" as const,
+  }
+  reviewerPermissionPolicy(designShell)
+  assert.equal(designShell.effect, "allow")
+
+  const implementationEdit = {
+    agent: "kazforge-implementation-reviewer",
+    action: "edit",
+    resources: ["src/index.ts"],
+    effect: "allow" as const,
+  }
+  reviewerPermissionPolicy(implementationEdit)
+  assert.equal(implementationEdit.effect, "allow")
+
+  const alreadyAsked = {
+    agent: "kazforge-implementation-reviewer",
+    action: "shell",
+    resources: ["npm test"],
+    effect: "ask" as const,
+  }
+  reviewerPermissionPolicy(alreadyAsked)
+  assert.equal(alreadyAsked.effect, "ask")
+
+  const denied = {
+    agent: "kazforge-implementation-reviewer",
+    action: "shell",
+    resources: ["sudo rm -rf /"],
+    effect: "deny" as const,
+  }
+  reviewerPermissionPolicy(denied)
+  assert.equal(denied.effect, "deny")
+
+  const otherAgent = {
+    action: "shell",
+    resources: ["npm test"],
+    effect: "allow" as const,
+  }
+  reviewerPermissionPolicy(otherAgent)
+  assert.equal(otherAgent.effect, "allow")
 })
 
 test("an unavailable reviewer agent falls back without reviewing in the authoring session", async () => {

@@ -143,6 +143,73 @@ export function reviewerPermissions(reviewer: ReviewerAgent): PermissionRule[] {
 }
 
 /**
+ * The subset of a native permission evaluation the reviewer policy reads and
+ * adjusts. OpenCode passes its full evaluation here; only these fields matter,
+ * and `effect` and `message` are mutable by contract.
+ */
+export interface ReviewerPermissionEvaluation {
+  readonly sessionID?: string
+  readonly agent?: string
+  readonly action: string
+  readonly resources?: readonly string[]
+  effect: PermissionRule["effect"]
+  message?: string
+}
+
+/** The reviewer that may request repository verification. */
+const verificationReviewer = reviewerAgents.find(
+  (reviewer) => reviewer.profile === "verification",
+)
+
+/**
+ * Native `permission.evaluate` hook policy for the verification reviewer.
+ *
+ * OpenCode resolves agent and session rules first, then appends saved
+ * project-level allow grants, so a saved shell approval would otherwise
+ * upgrade the Implementation Reviewer's `shell: ask` to allow. This hook runs
+ * after that merge and forces verification shell evaluation back to ask. It is
+ * scoped to the reviewer agent and the shell action only; mutation and the
+ * read-only reviewers never reach this path because their deny is a hard deny
+ * evaluated before saved grants are merged.
+ */
+export function reviewerPermissionPolicy(evaluation: ReviewerPermissionEvaluation): void {
+  if (verificationReviewer === undefined) return
+  if (evaluation.agent !== verificationReviewer.agentId) return
+  if (evaluation.action !== "shell") return
+  if (evaluation.effect !== "allow") return
+  evaluation.effect = "ask"
+  evaluation.message = "Implementation Reviewer verification commands require explicit approval."
+}
+
+/**
+ * Apply the reviewer permission policy to a native evaluation. Tool calls pass
+ * the executing agent explicitly, but evaluations that name only a session
+ * resolve that session's agent first so the policy holds on every path.
+ */
+export async function applyReviewerPermissionPolicy(
+  evaluation: ReviewerPermissionEvaluation,
+  resolveSessionAgent: (sessionID: string) => Promise<string | undefined>,
+): Promise<void> {
+  if (evaluation.agent !== undefined) {
+    reviewerPermissionPolicy(evaluation)
+    return
+  }
+  if (evaluation.sessionID === undefined) return
+
+  const agent = await resolveSessionAgent(evaluation.sessionID).catch(() => undefined)
+  if (agent === undefined) return
+
+  const decision: ReviewerPermissionEvaluation = {
+    agent,
+    action: evaluation.action,
+    effect: evaluation.effect,
+  }
+  reviewerPermissionPolicy(decision)
+  evaluation.effect = decision.effect
+  if (decision.message !== undefined) evaluation.message = decision.message
+}
+
+/**
  * The only input a reviewer context receives: the requester's own request and
  * the single Core review skill that defines the review contract. Authoring
  * session history, agent mentions, metadata and any other selected skills are
@@ -304,6 +371,17 @@ export default Plugin.define({
       // registry, so a failed registration surfaces the fresh-session fallback
       // instead of silently degrading into a same-context review.
     }
+
+    // Saved project-level permission grants are appended after agent and
+    // session rules and can upgrade `shell: ask` to allow, so the verification
+    // reviewer's shell approval is re-asserted after that merge. Evaluations
+    // that name only a session are resolved to their agent first.
+    await ctx.permission.hook("evaluate", (evaluation) =>
+      applyReviewerPermissionPolicy(evaluation, async (sessionID) => {
+        const session = await ctx.session.get({ sessionID })
+        return session.agent
+      }),
+    )
 
     await ctx.skill.transform((editor) => {
       for (const skill of skills) {
