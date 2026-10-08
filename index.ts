@@ -1,19 +1,20 @@
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
-import { Plugin, Skill } from "@opencode/plugin"
+import { Agent, Plugin, Skill } from "@opencode/plugin"
 import { AbsolutePath } from "@opencode/schema"
 
 /**
  * OpenCode plugin entrypoint for Agent Skills Core.
  *
  * This file owns OpenCode mechanics only: it registers the Core workflow
- * contracts from `skills/<name>/SKILL.md` as plugin-provided skills and exposes
- * each one as an OpenCode-native command that selects that skill. The workflow
- * semantics stay in the skill files and are not reimplemented here; command
- * descriptions are read from the skill frontmatter rather than stored again.
- * Reviewer agents and per-reviewer model routing are tracked separately
- * (KAZ-197 and KAZ-198).
+ * contracts from `skills/<name>/SKILL.md` as plugin-provided skills, exposes
+ * each one as an OpenCode-native command that selects that skill, and registers
+ * one reviewer agent per review workflow so reviews can run in an independent
+ * context. The workflow semantics stay in the skill files and are not
+ * reimplemented here; command descriptions and reviewer agent descriptions are
+ * read from the skill frontmatter rather than stored again. Per-reviewer model
+ * routing is tracked separately (KAZ-198).
  */
 
 /**
@@ -34,13 +35,275 @@ const skillsRoot = new URL("skills/", import.meta.url)
 
 type CommandEditor = Parameters<Parameters<Plugin.Context["command"]["transform"]>[0]>[0]
 type CommandDefinition = Parameters<CommandEditor["add"]>[0]
-type PromptInput = Parameters<Plugin.Context["session"]["prompt"]>[0]
-type SendPrompt = (input: PromptInput) => Promise<unknown>
+type CommandInvocation = Parameters<CommandDefinition["execute"]>[0]
+type SessionPromptInput = Parameters<Plugin.Context["session"]["prompt"]>[0]
+type SendPrompt = (input: SessionPromptInput) => Promise<unknown>
+
+/** The OpenCode agent editor received from `ctx.agent.transform`. */
+export type AgentEditor = Parameters<Parameters<Plugin.Context["agent"]["transform"]>[0]>[0]
+/** One native OpenCode permission rule. */
+export type PermissionRule = Agent.Info["permissions"][number]
+
+/**
+ * A plugin-owned reviewer role. The agent ID is stable and namespaced because
+ * OpenCode keeps one agent registry shared by every source; KAZ-198 can target
+ * these IDs for user-controlled model routing. Reviewer agents intentionally
+ * configure no model, so they keep normal OpenCode model inheritance.
+ */
+export interface ReviewerAgent {
+  /** Core review workflow and skill ID this reviewer serves. */
+  readonly workflow: string
+  /** Stable plugin-owned agent ID. */
+  readonly agentId: string
+  /** Display name registered in the OpenCode agent registry. */
+  readonly name: string
+  /** Title for the independent reviewer session. */
+  readonly title: string
+  /**
+   * Permission profile. Read-only reviews may inspect the repository but not
+   * run commands; verification reviews may ask the user to run a repository
+   * verification command without gaining blanket mutation capability.
+   */
+  readonly profile: "read-only" | "verification"
+}
+
+/**
+ * The three review workflows run through dedicated reviewer agents instead of
+ * the authoring session. IDs are deliberately prefixed so they cannot collide
+ * with consumer-defined agents or built-in OpenCode agents.
+ */
+export const reviewerAgents: readonly ReviewerAgent[] = [
+  {
+    workflow: "design-review",
+    agentId: "kazforge-design-reviewer",
+    name: "Design Reviewer",
+    title: "Design Review",
+    profile: "read-only",
+  },
+  {
+    workflow: "plan-review",
+    agentId: "kazforge-plan-reviewer",
+    name: "Plan Reviewer",
+    title: "Plan Review",
+    profile: "read-only",
+  },
+  {
+    workflow: "implementation-review",
+    agentId: "kazforge-implementation-reviewer",
+    name: "Implementation Reviewer",
+    title: "Implementation Review",
+    profile: "verification",
+  },
+]
+
+/**
+ * Register the plugin-owned reviewer agents. `update` inserts a new agent built
+ * from OpenCode's default agent template when the ID is unknown, so the
+ * reviewer identity and permission profile are applied to the effective agent.
+ * Descriptions come from the corresponding skill frontmatter, keeping the
+ * review criteria in the skill file as the only source of truth.
+ */
+export function applyReviewerAgents(editor: AgentEditor, skills: readonly Skill.Info[]): void {
+  for (const reviewer of reviewerAgents) {
+    const skill = skills.find((candidate) => candidate.id === reviewer.workflow)
+    editor.update(reviewer.agentId, (agent) => {
+      agent.name = Agent.Name.make(reviewer.name)
+      agent.description = skill?.description
+      agent.mode = "subagent"
+      agent.hidden = false
+      agent.permissions.push(...reviewerPermissions(reviewer))
+    })
+  }
+}
+
+/**
+ * Native per-agent permission rules for a reviewer. The whitelist starts by
+ * denying every action and then allows only repository inspection, so tools,
+ * MCP actions and any other external mutation stay denied by default. The
+ * implementation reviewer additionally gets `shell: ask`: each
+ * repository-provided verification command requires explicit user approval
+ * rather than granting command capability.
+ */
+export function reviewerPermissions(reviewer: ReviewerAgent): PermissionRule[] {
+  const rules: PermissionRule[] = [
+    { action: "*", resource: "*", effect: "deny" },
+    { action: "read", resource: "*", effect: "allow" },
+    { action: "grep", resource: "*", effect: "allow" },
+    { action: "glob", resource: "*", effect: "allow" },
+    { action: "skill", resource: "*", effect: "allow" },
+    // Secrets are not review evidence; keep them denied even though reads are allowed.
+    { action: "read", resource: "*.env", effect: "deny" },
+    { action: "read", resource: "*.env.*", effect: "deny" },
+    { action: "read", resource: "*.env.example", effect: "allow" },
+  ]
+  if (reviewer.profile === "verification") {
+    rules.push({ action: "shell", resource: "*", effect: "ask" })
+  }
+  return rules
+}
+
+/**
+ * The only input a reviewer context receives: the requester's own request and
+ * the single Core review skill that defines the review contract. Authoring
+ * session history, agent mentions, metadata and any other selected skills are
+ * deliberately not carried.
+ */
+export interface ReviewContract {
+  /** The requester's own words: review source, requested outcome, acceptance intent. */
+  readonly text: string
+  /** Attachments the requester supplied with the request. */
+  readonly files?: CommandInvocation["prompt"]["files"]
+  /** Core review skills defining the contract; exactly one per review. */
+  readonly skills: readonly string[]
+}
+
+/** A review workflow invocation from a user-facing command. */
+export interface ReviewInvocation {
+  readonly sessionID: CommandInvocation["sessionID"]
+  readonly prompt: CommandInvocation["prompt"]
+}
+
+/**
+ * OpenCode mechanics a review workflow needs. Kept as a small injected surface
+ * so the handoff can be tested with real types and without a running OpenCode.
+ */
+export interface ReviewContext {
+  /** Whether the plugin-owned reviewer agent is registered in this OpenCode instance. */
+  readonly available: (agentId: string) => Promise<boolean>
+  /** Create the independent reviewer session as a child of the invoking session. */
+  readonly create: (input: {
+    readonly parentID: string
+    readonly title: string
+    readonly agent: string
+    /**
+     * Session-level rules, merged after the agent's rules and after rules the
+     * host may append from global configuration, so they pin the reviewer
+     * profile. They also replace any grants saved in the authoring session.
+     */
+    readonly permissions: readonly PermissionRule[]
+  }) => Promise<{ readonly id: string }>
+  /** Deliver the review contract to the reviewer session. */
+  readonly deliver: (input: {
+    readonly sessionID: string
+    readonly contract: ReviewContract
+  }) => Promise<unknown>
+  /** Surface a user-visible notice in a session without prompting its agent. */
+  readonly notice: (sessionID: string, text: string, description: string) => Promise<unknown>
+}
+
+/**
+ * Start a review in its dedicated reviewer context. The reviewer receives only
+ * the review contract and repository access through a fresh child session.
+ *
+ * When the reviewer agent is unavailable, session creation fails or delivery
+ * fails, the review is not started in the authoring session: the limitation is
+ * surfaced there and the skill's fresh-session fallback applies. This is
+ * intentionally not a retry or state machine; it is a single attempt plus an
+ * explicit fallback.
+ */
+export async function startReview(
+  context: ReviewContext,
+  reviewer: ReviewerAgent,
+  invocation: ReviewInvocation,
+): Promise<"reviewer" | "fallback"> {
+  let available = false
+  try {
+    available = await context.available(reviewer.agentId)
+  } catch {
+    available = false
+  }
+  if (!available) {
+    await context.notice(
+      invocation.sessionID,
+      reviewFallbackNotice(reviewer, "the reviewer agent is not registered"),
+      `${reviewer.title} not started`,
+    )
+    return "fallback"
+  }
+
+  let sessionID: string
+  try {
+    const session = await context.create({
+      parentID: invocation.sessionID,
+      title: reviewer.title,
+      agent: reviewer.agentId,
+      // Session rules merge after agent rules and after consumer/global config
+      // rules OpenCode appends later, so they pin the reviewer profile; they
+      // also replace any grants saved in the authoring session.
+      permissions: reviewerPermissions(reviewer),
+    })
+    sessionID = session.id
+    await context.deliver({
+      sessionID,
+      contract: reviewContract(reviewer, invocation.prompt),
+    })
+  } catch (error) {
+    await context.notice(
+      invocation.sessionID,
+      reviewFallbackNotice(reviewer, error instanceof Error ? error.message : String(error)),
+      `${reviewer.title} not started`,
+    )
+    return "fallback"
+  }
+
+  // Best-effort pointer to the fresh context; a failed notice must not turn a
+  // started review into a fallback.
+  await context
+    .notice(
+      invocation.sessionID,
+      `${reviewer.title} is running in the independent ${reviewer.name} context: session ${sessionID}.`,
+      `${reviewer.title} started`,
+    )
+    .catch(() => {})
+
+  return "reviewer"
+}
+
+/** Build the review contract from the requester's request and one review skill. */
+export function reviewContract(
+  reviewer: ReviewerAgent,
+  prompt: CommandInvocation["prompt"],
+): ReviewContract {
+  return {
+    text: prompt.text,
+    files: prompt.files,
+    skills: [reviewer.workflow],
+  }
+}
+
+/** User-visible explanation of why no review ran, with the skill's fallback. */
+function reviewFallbackNotice(reviewer: ReviewerAgent, detail: string): string {
+  return [
+    `${reviewer.title} was not started because an independent reviewer context is unavailable: ${detail}.`,
+    "The review was not performed in this session.",
+    `Start a fresh OpenCode session with access to this repository and follow the ${reviewer.workflow} skill's fresh-session fallback, passing only the review source, the requested outcome and acceptance intent, and how to return the result.`,
+  ].join(" ")
+}
+
+/**
+ * OpenCode mechanics the command adapters use. Non-review workflows deliver
+ * their prompt in the invoking session; review workflows start a dedicated
+ * reviewer context instead.
+ */
+export interface CommandRuntime {
+  /** Deliver a prompt in the invoking session. */
+  readonly prompt: SendPrompt
+  /** Start a review workflow through its dedicated reviewer agent. */
+  readonly review: (reviewer: ReviewerAgent, invocation: ReviewInvocation) => Promise<unknown>
+}
 
 export default Plugin.define({
   id: "kazforge.agent-skills",
   async setup(ctx) {
     const skills = readCoreSkills()
+
+    try {
+      await ctx.agent.transform((editor) => applyReviewerAgents(editor, skills))
+    } catch {
+      // Keep skills and commands available. Each review checks the live agent
+      // registry, so a failed registration surfaces the fresh-session fallback
+      // instead of silently degrading into a same-context review.
+    }
 
     await ctx.skill.transform((editor) => {
       for (const skill of skills) {
@@ -60,8 +323,42 @@ export default Plugin.define({
       }
     })
 
+    const runtime: CommandRuntime = {
+      prompt: (input) => ctx.session.prompt(input),
+      review: (reviewer, invocation) =>
+        startReview(
+          {
+            available: async (agentId) => {
+              try {
+                await ctx.agent.get({ agentID: agentId })
+                return true
+              } catch {
+                return false
+              }
+            },
+            create: async ({ parentID, title, agent, permissions }) => {
+              const session = await ctx.session.create({ parentID, agent, title, permissions })
+              return { id: session.id }
+            },
+            deliver: async ({ sessionID, contract }) => {
+              await ctx.session.prompt({
+                sessionID,
+                text: contract.text,
+                files: contract.files,
+                skills: contract.skills.map((id) => ({ id })),
+              })
+            },
+            notice: async (sessionID, text, description) => {
+              await ctx.session.synthetic({ sessionID, text, description, resume: false })
+            },
+          },
+          reviewer,
+          invocation,
+        ),
+    }
+
     await ctx.command.transform((editor) => {
-      for (const command of coreCommands(skills, (input) => ctx.session.prompt(input))) {
+      for (const command of coreCommands(skills, runtime)) {
         editor.add(command)
       }
     })
@@ -77,19 +374,29 @@ export function readCoreSkills(): Skill.Info[] {
 }
 
 /**
- * Thin OpenCode command adapters. Each command selects its skill and passes the
- * requester's own request through unchanged, so planning and implementation
- * authorization boundaries stay with the skill contract.
+ * Thin OpenCode command adapters. Non-review commands select their skill and
+ * pass the requester's own request through unchanged, so planning and
+ * implementation authorization boundaries stay with the skill contract.
+ * Review commands hand the request to their dedicated reviewer agent instead
+ * of reviewing in the authoring session.
  */
-export function coreCommands(skills: readonly Skill.Info[], send: SendPrompt): CommandDefinition[] {
+export function coreCommands(
+  skills: readonly Skill.Info[],
+  runtime: CommandRuntime,
+): CommandDefinition[] {
   return coreWorkflowIds.map((id) => {
     const skill = skills.find((candidate) => candidate.id === id)
+    const reviewer = reviewerAgents.find((candidate) => candidate.workflow === id)
     return {
       name: id,
       description: skill?.description,
       execute: async ({ sessionID, prompt, delivery }) => {
+        if (reviewer) {
+          await runtime.review(reviewer, { sessionID, prompt })
+          return
+        }
         const selected = prompt.skills ?? []
-        await send({
+        await runtime.prompt({
           ...prompt,
           sessionID,
           skills: selected.some((candidate) => candidate.id === id)
