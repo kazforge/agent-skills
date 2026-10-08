@@ -35,10 +35,12 @@ skill carries its own fresh-session fallback: when the active session cannot
 provide an independent reviewer context, the review moves to a fresh session
 carrying only the review contract — review type, source, requested outcome and
 acceptance intent, repository access, and how to return the result — never the
-authoring session's reasoning, conclusions or narrative. Core skills stay
-independently usable and are not mandatory workflow stages: `implementation-review`
-stands alone, and `implementation` requests it only when the environment supports
-an independent context.
+authoring session's reasoning, conclusions or narrative. With the OpenCode
+plugin loaded, the review commands provide that fresh context directly (see
+[Reviewer agents](#reviewer-agents)); Core skills stay independently usable and
+are not mandatory workflow stages: `implementation-review` stands alone, and
+`implementation` requests it only when the environment supports an independent
+context.
 
 ## Consumer repositories own engineering truth
 
@@ -112,8 +114,53 @@ collide with the plugin-provided commands.
 Workflow semantics stay in the `skills/<name>/SKILL.md` files and are not
 reimplemented as plugin code. The plugin reads each skill's description from the
 same frontmatter rather than storing a second copy, so a command never becomes a
-second source of workflow truth. Reviewer agents and per-reviewer model routing
-are tracked separately.
+second source of workflow truth.
+
+### Reviewer agents
+
+The plugin registers one reviewer agent per review workflow, as OpenCode
+subagents with stable, collision-safe IDs:
+
+| Agent ID | Role | Repository access |
+| --- | --- | --- |
+| `kazforge-design-reviewer` | Design Reviewer | inspect only |
+| `kazforge-plan-reviewer` | Plan Reviewer | inspect only |
+| `kazforge-implementation-reviewer` | Implementation Reviewer | inspect, plus verification commands with per-command approval |
+
+No model is configured for these agents, so they keep normal OpenCode model
+inheritance; per-reviewer model routing is tracked separately (KAZ-198 can
+target the IDs above).
+
+Running `/design-review`, `/plan-review` or `/implementation-review` starts the
+review in a fresh child session bound to the matching reviewer agent. The
+reviewer receives only the requester's own request (text and attachments) and
+the single review skill that defines the contract. Authoring-session history,
+conclusions, narrative and other selected skills are not passed, so the
+reviewer derives its findings independently from the contract and repository
+evidence.
+
+Reviewer permissions are declared with OpenCode's native per-rule permissions:
+a deny-all base with `read`, `grep`, `glob` and `skill` allowed, secrets denied,
+and for the implementation reviewer `shell: ask` so each repository verification
+command needs explicit approval. The same rule set is pinned on the reviewer
+session (session rules are evaluated after agent rules), so globally configured
+permission rules cannot widen a reviewer into mutation, and the deny-all base is
+a hard deny for mutation that saved grants cannot override.
+
+Verification approval is enforced separately: OpenCode appends saved
+project-level allow grants after agent and session rules, and a saved shell
+allow would otherwise upgrade `shell: ask` to allow. A native
+`permission.evaluate` hook scoped to the implementation reviewer and the shell
+action forces the evaluation back to `ask` after that merge, so previously
+saved approvals still produce an approval prompt per reviewer command. The hook
+never relaxes an evaluation: it only changes an allow to ask, while denies and
+asks pass through unchanged.
+
+If the reviewer agent is not registered, or the reviewer session cannot be
+created or receive the contract, the review is not performed in the authoring
+session. The command surfaces a notice with the reason and the skill's explicit
+fresh-session fallback applies instead; a failed fallback notice cannot make the
+command silently self-review.
 
 Install the entrypoint's runtime dependency once from the checkout:
 

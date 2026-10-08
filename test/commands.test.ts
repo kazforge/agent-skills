@@ -6,6 +6,7 @@ import test from "node:test"
 import { Skill } from "@opencode/plugin"
 import { Session } from "@opencode/schema"
 
+import type { CommandRuntime, ReviewInvocation, ReviewerAgent } from "../index.ts"
 import { coreCommands, readCoreSkills } from "../index.ts"
 
 const root = new URL("../", import.meta.url)
@@ -18,15 +19,35 @@ const coreSkillIds = [
   "implementation-review",
 ] as const
 
-type SendPrompt = Parameters<typeof coreCommands>[1]
 type CommandDefinition = ReturnType<typeof coreCommands>[number]
 type CommandInvocation = Parameters<CommandDefinition["execute"]>[0]
-type PromptInput = Parameters<SendPrompt>[0]
+type PromptInput = Parameters<CommandRuntime["prompt"]>[0]
 
-/** Record prompts sent by command adapters. */
-function recordPrompts(): { prompts: PromptInput[]; send: SendPrompt } {
+/** A runtime that records both delivery paths instead of performing them. */
+function recordRuntime(): {
+  prompts: PromptInput[]
+  reviews: Array<{ reviewer: ReviewerAgent; invocation: ReviewInvocation }>
+  runtime: CommandRuntime
+} {
   const prompts: PromptInput[] = []
-  return { prompts, send: async (input) => void prompts.push(input) }
+  const reviews: Array<{ reviewer: ReviewerAgent; invocation: ReviewInvocation }> = []
+  return {
+    prompts,
+    reviews,
+    runtime: {
+      prompt: async (input) => {
+        prompts.push(input)
+      },
+      review: async (reviewer, invocation) => {
+        reviews.push({ reviewer, invocation })
+      },
+    },
+  }
+}
+
+/** A runtime that swallows both delivery paths, for registration tests. */
+function stubRuntime(): CommandRuntime {
+  return { prompt: async () => {}, review: async () => {} }
 }
 
 test("Core skills are registered from their packaged files without frontmatter", () => {
@@ -56,7 +77,7 @@ test("Core skills are registered from their packaged files without frontmatter",
 })
 
 test("each Core workflow is exposed as a command named after its skill", () => {
-  const commands = coreCommands(readCoreSkills(), async () => {})
+  const commands = coreCommands(readCoreSkills(), stubRuntime())
 
   assert.deepEqual(
     commands.map((command) => command.name).sort(),
@@ -66,7 +87,7 @@ test("each Core workflow is exposed as a command named after its skill", () => {
 
 test("command descriptions come from the skill frontmatter, not the plugin", () => {
   const skills = readCoreSkills()
-  const commands = coreCommands(skills, async () => {})
+  const commands = coreCommands(skills, stubRuntime())
 
   for (const command of commands) {
     const skill = skills.find((candidate) => candidate.id === command.name)
@@ -76,9 +97,9 @@ test("command descriptions come from the skill frontmatter, not the plugin", () 
   }
 })
 
-test("a command preserves the request and selects its skill", async () => {
-  const { prompts, send } = recordPrompts()
-  const command = coreCommands(readCoreSkills(), send).find(
+test("a non-review command preserves the request and selects its skill", async () => {
+  const { prompts, reviews, runtime } = recordRuntime()
+  const command = coreCommands(readCoreSkills(), runtime).find(
     (candidate) => candidate.name === "implementation-planning",
   )
   assert.ok(command)
@@ -93,6 +114,7 @@ test("a command preserves the request and selects its skill", async () => {
   await command.execute(invocation)
 
   assert.equal(prompts.length, 1)
+  assert.equal(reviews.length, 0)
   assert.equal(prompts[0].text, "KAZ-196")
   assert.deepEqual(prompts[0].files, files)
   assert.equal(prompts[0].sessionID, "ses_test")
@@ -103,9 +125,9 @@ test("a command preserves the request and selects its skill", async () => {
   ])
 })
 
-test("a command does not select its skill twice", async () => {
-  const { prompts, send } = recordPrompts()
-  const command = coreCommands(readCoreSkills(), send).find(
+test("a non-review command does not select its skill twice", async () => {
+  const { prompts, runtime } = recordRuntime()
+  const command = coreCommands(readCoreSkills(), runtime).find(
     (candidate) => candidate.name === "implementation",
   )
   assert.ok(command)
@@ -119,12 +141,41 @@ test("a command does not select its skill twice", async () => {
   assert.deepEqual(prompts[0].skills, [{ id: "implementation" }])
 })
 
+test("each review command runs through its dedicated reviewer, not the authoring session", async () => {
+  for (const workflow of ["design-review", "plan-review", "implementation-review"] as const) {
+    const { prompts, reviews, runtime } = recordRuntime()
+    const command = coreCommands(readCoreSkills(), runtime).find(
+      (candidate) => candidate.name === workflow,
+    )
+    assert.ok(command, `${workflow} command exists`)
+
+    const invocation: CommandInvocation = {
+      sessionID: Session.ID.make("ses_author"),
+      prompt: {
+        text: "KAZ-197",
+        files: [{ uri: "file:///contract.md" }],
+        skills: [{ id: Skill.ID.make("implementation-planning") }],
+      },
+      delivery: "steer",
+    }
+
+    await command.execute(invocation)
+
+    assert.equal(prompts.length, 0, `${workflow} does not prompt the authoring session`)
+    assert.equal(reviews.length, 1, `${workflow} starts one reviewer context`)
+    assert.equal(reviews[0].reviewer.workflow, workflow)
+    assert.equal(reviews[0].reviewer.agentId, `kazforge-${workflow.replace("-review", "").replace("implementation", "implementation")}-reviewer`.replace("implementation-implementation", "implementation"))
+    assert.equal(reviews[0].invocation.sessionID, "ses_author")
+    assert.deepEqual(reviews[0].invocation.prompt, invocation.prompt)
+  }
+})
+
 test("plugin commands do not collide with repository command wrappers", () => {
   const wrappers = readdirSync(new URL("commands/", root))
     .filter((file) => file.endsWith(".md"))
     .map((file) => file.slice(0, -".md".length))
 
-  for (const command of coreCommands(readCoreSkills(), async () => {})) {
+  for (const command of coreCommands(readCoreSkills(), stubRuntime())) {
     assert.ok(
       !wrappers.includes(command.name),
       `${command.name} does not shadow the ${command.name}.md wrapper`,
