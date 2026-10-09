@@ -7,14 +7,13 @@ import { AbsolutePath } from "@opencode/schema"
 /**
  * OpenCode plugin entrypoint for Agent Skills Core.
  *
- * This file owns OpenCode mechanics only: it registers the Core workflow
- * contracts from `skills/<name>/SKILL.md` as plugin-provided skills, exposes
- * each one as an OpenCode-native command that selects that skill, and registers
- * one reviewer agent per review workflow so reviews can run in an independent
- * context. The workflow semantics stay in the skill files and are not
- * reimplemented here; command descriptions and reviewer agent descriptions are
- * read from the skill frontmatter rather than stored again. Per-reviewer model
- * routing is tracked separately (KAZ-198).
+ * Declarative definitions live in OpenCode-native form: workflow contracts in
+ * `skills/<name>/SKILL.md`, and reviewer agents with their descriptions, modes
+ * and permission rules in `agents/reviewers.json`. This file keeps only the
+ * runtime mechanics OpenCode configuration cannot express: registering those
+ * definitions through the plugin API, starting reviews in a fresh child session
+ * with a narrow contract and explicit fallback, and the verification shell
+ * approval hook. Per-reviewer model routing is tracked separately (KAZ-198).
  */
 
 /**
@@ -31,7 +30,7 @@ const coreWorkflowIds = [
   "implementation-review",
 ] as const
 
-const skillsRoot = new URL("skills/", import.meta.url)
+const packagedRoot = new URL("./", import.meta.url)
 
 type CommandEditor = Parameters<Parameters<Plugin.Context["command"]["transform"]>[0]>[0]
 type CommandDefinition = Parameters<CommandEditor["add"]>[0]
@@ -45,101 +44,48 @@ export type AgentEditor = Parameters<Parameters<Plugin.Context["agent"]["transfo
 export type PermissionRule = Agent.Info["permissions"][number]
 
 /**
- * A plugin-owned reviewer role. The agent ID is stable and namespaced because
- * OpenCode keeps one agent registry shared by every source; KAZ-198 can target
- * these IDs for user-controlled model routing. Reviewer agents intentionally
- * configure no model, so they keep normal OpenCode model inheritance.
+ * A reviewer role as declared in `agents/reviewers.json`. The `agent` object
+ * uses the same fields as an OpenCode `agents` configuration entry, with
+ * `name` as the only registry-only field. No model is declared, so reviewers
+ * keep normal OpenCode model inheritance; KAZ-198 can target `agentID`.
  */
-export interface ReviewerAgent {
+export interface ReviewerDeclaration {
   /** Core review workflow and skill ID this reviewer serves. */
   readonly workflow: string
-  /** Stable plugin-owned agent ID. */
-  readonly agentId: string
-  /** Display name registered in the OpenCode agent registry. */
-  readonly name: string
   /** Title for the independent reviewer session. */
   readonly title: string
-  /**
-   * Permission profile. Read-only reviews may inspect the repository but not
-   * run commands; verification reviews may ask the user to run a repository
-   * verification command without gaining blanket mutation capability.
-   */
-  readonly profile: "read-only" | "verification"
+  /** Stable plugin-owned agent ID. */
+  readonly agentID: string
+  readonly agent: {
+    readonly name: string
+    readonly description: string
+    readonly mode: "subagent"
+    readonly hidden: boolean
+    readonly permissions: readonly PermissionRule[]
+  }
 }
 
-/**
- * The three review workflows run through dedicated reviewer agents instead of
- * the authoring session. IDs are deliberately prefixed so they cannot collide
- * with consumer-defined agents or built-in OpenCode agents.
- */
-export const reviewerAgents: readonly ReviewerAgent[] = [
-  {
-    workflow: "design-review",
-    agentId: "kazforge-design-reviewer",
-    name: "Design Reviewer",
-    title: "Design Review",
-    profile: "read-only",
-  },
-  {
-    workflow: "plan-review",
-    agentId: "kazforge-plan-reviewer",
-    name: "Plan Reviewer",
-    title: "Plan Review",
-    profile: "read-only",
-  },
-  {
-    workflow: "implementation-review",
-    agentId: "kazforge-implementation-reviewer",
-    name: "Implementation Reviewer",
-    title: "Implementation Review",
-    profile: "verification",
-  },
-]
+/** The reviewer roles declared in the packaged agent definitions. */
+export const reviewers: readonly ReviewerDeclaration[] = readReviewers()
+
+/** The reviewer whose repository verification commands require explicit approval. */
+const verificationAgentID = "kazforge-implementation-reviewer"
 
 /**
- * Register the plugin-owned reviewer agents. `update` inserts a new agent built
- * from OpenCode's default agent template when the ID is unknown, so the
- * reviewer identity and permission profile are applied to the effective agent.
- * Descriptions come from the corresponding skill frontmatter, keeping the
- * review criteria in the skill file as the only source of truth.
+ * Register the declared reviewer agents. `update` inserts a missing agent from
+ * OpenCode's default template, so the declared identity and permissions apply
+ * to the effective agent.
  */
-export function applyReviewerAgents(editor: AgentEditor, skills: readonly Skill.Info[]): void {
-  for (const reviewer of reviewerAgents) {
-    const skill = skills.find((candidate) => candidate.id === reviewer.workflow)
-    editor.update(reviewer.agentId, (agent) => {
-      agent.name = Agent.Name.make(reviewer.name)
-      agent.description = skill?.description
-      agent.mode = "subagent"
-      agent.hidden = false
-      agent.permissions.push(...reviewerPermissions(reviewer))
+export function applyReviewerAgents(editor: AgentEditor): void {
+  for (const reviewer of reviewers) {
+    editor.update(reviewer.agentID, (agent) => {
+      agent.name = Agent.Name.make(reviewer.agent.name)
+      agent.description = reviewer.agent.description
+      agent.mode = reviewer.agent.mode
+      agent.hidden = reviewer.agent.hidden
+      agent.permissions.push(...reviewer.agent.permissions)
     })
   }
-}
-
-/**
- * Native per-agent permission rules for a reviewer. The whitelist starts by
- * denying every action and then allows only repository inspection, so tools,
- * MCP actions and any other external mutation stay denied by default. The
- * implementation reviewer additionally gets `shell: ask`: each
- * repository-provided verification command requires explicit user approval
- * rather than granting command capability.
- */
-export function reviewerPermissions(reviewer: ReviewerAgent): PermissionRule[] {
-  const rules: PermissionRule[] = [
-    { action: "*", resource: "*", effect: "deny" },
-    { action: "read", resource: "*", effect: "allow" },
-    { action: "grep", resource: "*", effect: "allow" },
-    { action: "glob", resource: "*", effect: "allow" },
-    { action: "skill", resource: "*", effect: "allow" },
-    // Secrets are not review evidence; keep them denied even though reads are allowed.
-    { action: "read", resource: "*.env", effect: "deny" },
-    { action: "read", resource: "*.env.*", effect: "deny" },
-    { action: "read", resource: "*.env.example", effect: "allow" },
-  ]
-  if (reviewer.profile === "verification") {
-    rules.push({ action: "shell", resource: "*", effect: "ask" })
-  }
-  return rules
 }
 
 /**
@@ -156,11 +102,6 @@ export interface ReviewerPermissionEvaluation {
   message?: string
 }
 
-/** The reviewer that may request repository verification. */
-const verificationReviewer = reviewerAgents.find(
-  (reviewer) => reviewer.profile === "verification",
-)
-
 /**
  * Native `permission.evaluate` hook policy for the verification reviewer.
  *
@@ -173,8 +114,7 @@ const verificationReviewer = reviewerAgents.find(
  * evaluated before saved grants are merged.
  */
 export function reviewerPermissionPolicy(evaluation: ReviewerPermissionEvaluation): void {
-  if (verificationReviewer === undefined) return
-  if (evaluation.agent !== verificationReviewer.agentId) return
+  if (evaluation.agent !== verificationAgentID) return
   if (evaluation.action !== "shell") return
   if (evaluation.effect !== "allow") return
   evaluation.effect = "ask"
@@ -270,12 +210,12 @@ export interface ReviewContext {
  */
 export async function startReview(
   context: ReviewContext,
-  reviewer: ReviewerAgent,
+  reviewer: ReviewerDeclaration,
   invocation: ReviewInvocation,
 ): Promise<"reviewer" | "fallback"> {
   let available = false
   try {
-    available = await context.available(reviewer.agentId)
+    available = await context.available(reviewer.agentID)
   } catch {
     available = false
   }
@@ -293,11 +233,8 @@ export async function startReview(
     const session = await context.create({
       parentID: invocation.sessionID,
       title: reviewer.title,
-      agent: reviewer.agentId,
-      // Session rules merge after agent rules and after consumer/global config
-      // rules OpenCode appends later, so they pin the reviewer profile; they
-      // also replace any grants saved in the authoring session.
-      permissions: reviewerPermissions(reviewer),
+      agent: reviewer.agentID,
+      permissions: reviewer.agent.permissions,
     })
     sessionID = session.id
     await context.deliver({
@@ -318,7 +255,7 @@ export async function startReview(
   await context
     .notice(
       invocation.sessionID,
-      `${reviewer.title} is running in the independent ${reviewer.name} context: session ${sessionID}.`,
+      `${reviewer.title} is running in the independent ${reviewer.agent.name} context: session ${sessionID}.`,
       `${reviewer.title} started`,
     )
     .catch(() => {})
@@ -328,7 +265,7 @@ export async function startReview(
 
 /** Build the review contract from the requester's request and one review skill. */
 export function reviewContract(
-  reviewer: ReviewerAgent,
+  reviewer: ReviewerDeclaration,
   prompt: CommandInvocation["prompt"],
 ): ReviewContract {
   return {
@@ -339,7 +276,7 @@ export function reviewContract(
 }
 
 /** User-visible explanation of why no review ran, with the skill's fallback. */
-function reviewFallbackNotice(reviewer: ReviewerAgent, detail: string): string {
+function reviewFallbackNotice(reviewer: ReviewerDeclaration, detail: string): string {
   return [
     `${reviewer.title} was not started because an independent reviewer context is unavailable: ${detail}.`,
     "The review was not performed in this session.",
@@ -356,7 +293,7 @@ export interface CommandRuntime {
   /** Deliver a prompt in the invoking session. */
   readonly prompt: SendPrompt
   /** Start a review workflow through its dedicated reviewer agent. */
-  readonly review: (reviewer: ReviewerAgent, invocation: ReviewInvocation) => Promise<unknown>
+  readonly review: (reviewer: ReviewerDeclaration, invocation: ReviewInvocation) => Promise<unknown>
 }
 
 export default Plugin.define({
@@ -365,7 +302,7 @@ export default Plugin.define({
     const skills = readCoreSkills()
 
     try {
-      await ctx.agent.transform((editor) => applyReviewerAgents(editor, skills))
+      await ctx.agent.transform(applyReviewerAgents)
     } catch {
       // Keep skills and commands available. Each review checks the live agent
       // registry, so a failed registration surfaces the fresh-session fallback
@@ -464,7 +401,7 @@ export function coreCommands(
 ): CommandDefinition[] {
   return coreWorkflowIds.map((id) => {
     const skill = skills.find((candidate) => candidate.id === id)
-    const reviewer = reviewerAgents.find((candidate) => candidate.workflow === id)
+    const reviewer = reviewers.find((candidate) => candidate.workflow === id)
     return {
       name: id,
       description: skill?.description,
@@ -487,9 +424,15 @@ export function coreCommands(
   })
 }
 
+/** Read the packaged reviewer declarations from `agents/reviewers.json`. */
+function readReviewers(): ReviewerDeclaration[] {
+  const path = fileURLToPath(new URL("agents/reviewers.json", packagedRoot))
+  return (JSON.parse(readFileSync(path, "utf8")) as { reviewers: ReviewerDeclaration[] }).reviewers
+}
+
 /** Read a packaged skill contract, keeping its Markdown body as the content. */
 function readSkill(id: string): Skill.Info {
-  const path = fileURLToPath(new URL(`${id}/SKILL.md`, skillsRoot))
+  const path = fileURLToPath(new URL(`skills/${id}/SKILL.md`, packagedRoot))
   const { meta, content } = parseFrontmatter(readFileSync(path, "utf8"))
   return Skill.Info.make({
     id: Skill.ID.make(id),

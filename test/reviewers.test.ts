@@ -7,23 +7,21 @@ import { Session } from "@opencode/schema"
 import {
   applyReviewerAgents,
   applyReviewerPermissionPolicy,
-  readCoreSkills,
   reviewContract,
-  reviewerAgents,
+  reviewers,
   reviewerPermissionPolicy,
-  reviewerPermissions,
   startReview,
   type AgentEditor,
   type PermissionRule,
   type ReviewContext,
   type ReviewInvocation,
-  type ReviewerAgent,
+  type ReviewerDeclaration,
 } from "../index.ts"
 
 type AgentDraft = Parameters<Parameters<AgentEditor["update"]>[1]>[0]
 
-/** The registered reviewer agents, readable by ID. */
-function registerReviewers(skills = readCoreSkills()): Map<string, AgentDraft> {
+/** The reviewer agents registered through the plugin, readable by ID. */
+function registerReviewers(): Map<string, AgentDraft> {
   const agents = new Map<string, AgentDraft>()
   const editor: AgentEditor = {
     list: () => [...agents.values()],
@@ -38,7 +36,7 @@ function registerReviewers(skills = readCoreSkills()): Map<string, AgentDraft> {
     },
     remove: (id) => void agents.delete(id),
   }
-  applyReviewerAgents(editor, skills)
+  applyReviewerAgents(editor)
   return agents
 }
 
@@ -86,8 +84,8 @@ function reviewHarness(overrides: Partial<ReviewContext> = {}): ReviewHarness {
   return { context, created, delivered, notices }
 }
 
-function reviewerFor(workflow: string): ReviewerAgent {
-  const reviewer = reviewerAgents.find((candidate) => candidate.workflow === workflow)
+function reviewerFor(workflow: string): ReviewerDeclaration {
+  const reviewer = reviewers.find((candidate) => candidate.workflow === workflow)
   assert.ok(reviewer, `${workflow} reviewer exists`)
   return reviewer
 }
@@ -106,47 +104,44 @@ function designInvocation(): ReviewInvocation {
 
 test("reviewer agents use stable KazForge IDs for the three review workflows", () => {
   assert.deepEqual(
-    reviewerAgents.map((reviewer) => reviewer.workflow).sort(),
+    reviewers.map((reviewer) => reviewer.workflow).sort(),
     ["design-review", "implementation-review", "plan-review"],
   )
   assert.deepEqual(
-    reviewerAgents.map((reviewer) => reviewer.agentId).sort(),
+    reviewers.map((reviewer) => reviewer.agentID).sort(),
     [
       "kazforge-design-reviewer",
       "kazforge-implementation-reviewer",
       "kazforge-plan-reviewer",
     ],
   )
-  for (const reviewer of reviewerAgents) {
-    assert.match(reviewer.agentId, /^kazforge-[a-z0-9-]+$/)
-    assert.ok(reviewer.name.length > 0)
+  for (const reviewer of reviewers) {
+    assert.match(reviewer.agentID, /^kazforge-[a-z0-9-]+$/)
+    assert.ok(reviewer.agent.name.length > 0)
   }
 })
 
-test("reviewers register as subagents with skill descriptions and no explicit model", () => {
-  const skills = readCoreSkills()
-  const agents = registerReviewers(skills)
+test("reviewers register as subagents with declared descriptions and no explicit model", () => {
+  const agents = registerReviewers()
 
-  for (const reviewer of reviewerAgents) {
-    const agent = agents.get(reviewer.agentId)
-    assert.ok(agent, `${reviewer.agentId} is registered`)
+  for (const reviewer of reviewers) {
+    const agent = agents.get(reviewer.agentID)
+    assert.ok(agent, `${reviewer.agentID} is registered`)
 
-    assert.equal(agent.name, reviewer.name)
+    assert.equal(agent.name, reviewer.agent.name)
     assert.equal(agent.mode, "subagent")
     assert.equal(agent.hidden, false)
-    assert.equal(agent.model, undefined, `${reviewer.agentId} keeps model inheritance`)
-    assert.equal(
-      agent.description,
-      skills.find((skill) => skill.id === reviewer.workflow)?.description,
-    )
+    assert.equal(agent.model, undefined, `${reviewer.agentID} keeps model inheritance`)
+    assert.equal(agent.description, reviewer.agent.description)
+    assert.ok(agent.description && agent.description.length > 0)
   }
 })
 
 test("reviewers inspect the repository but cannot mutate or reach external systems", () => {
   const agents = registerReviewers()
 
-  for (const reviewer of reviewerAgents) {
-    const agent = agents.get(reviewer.agentId)
+  for (const reviewer of reviewers) {
+    const agent = agents.get(reviewer.agentID)
     assert.ok(agent)
 
     // Repository inspection is allowed.
@@ -169,10 +164,10 @@ test("reviewers inspect the repository but cannot mutate or reach external syste
     assert.equal(effectFor(agent, "read", ".env"), "deny")
     assert.equal(effectFor(agent, "read", "config/.env.local"), "deny")
 
-    if (reviewer.profile === "read-only") {
-      assert.equal(effectFor(agent, "shell", "npm test"), "deny")
-    } else {
+    if (reviewer.agentID === "kazforge-implementation-reviewer") {
       assert.equal(effectFor(agent, "shell", "npm test"), "ask")
+    } else {
+      assert.equal(effectFor(agent, "shell", "npm test"), "deny")
     }
   }
 })
@@ -190,7 +185,7 @@ test("a review starts in a child reviewer session with only the review contract"
       parentID: "ses_author",
       agent: "kazforge-design-reviewer",
       title: "Design Review",
-      permissions: reviewerPermissions(reviewer),
+      permissions: reviewer.agent.permissions,
     },
   ])
   assert.equal(harness.delivered.length, 1)
@@ -211,7 +206,7 @@ test("a review starts in a child reviewer session with only the review contract"
 
 test("pinned session rules keep the reviewer profile against wider host rules", () => {
   const reviewer = reviewerFor("design-review")
-  const registered = registerReviewers().get(reviewer.agentId)
+  const registered = registerReviewers().get(reviewer.agentID)
   assert.ok(registered)
 
   // OpenCode appends host-wide configuration rules to every agent and
@@ -222,7 +217,7 @@ test("pinned session rules keep the reviewer profile against wider host rules", 
     permissions: [
       ...registered.permissions,
       { action: "*", resource: "*", effect: "allow" as const },
-      ...reviewerPermissions(reviewer),
+      ...reviewer.agent.permissions,
     ],
   }
 
