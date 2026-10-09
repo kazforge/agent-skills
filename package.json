@@ -20,7 +20,11 @@
   },
   "dependencies": {
     "@opencode/plugin": "2.0.26",
-    "@opencode/schema": "2.0.26"
+    "@opencode/schema": "2.0.26",
+    "gray-matter": "4.0.3"
+  },
+  "overrides": {
+    "@aws-sdk/credential-provider-http": "3.972.74"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

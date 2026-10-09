@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import test from "node:test"
 
-import plugin, { reviewers } from "../index.ts"
+import plugin from "../index.ts"
 
 const root = new URL("../", import.meta.url)
 const pkg = JSON.parse(readFileSync(new URL("package.json", root), "utf8"))
@@ -20,14 +20,13 @@ test("package root export points to the existing entrypoint", () => {
   assert.equal(fileURLToPath(entry), fileURLToPath(new URL("index.ts", root)))
 })
 
-test("reviewer declarations are packaged and each review workflow has its skill", () => {
+test("reviewer agents are packaged as OpenCode agent Markdown and each workflow has its skill", () => {
   assert.ok(pkg.files.includes("agents"), "agents directory is packaged")
-  assert.ok(existsSync(new URL("agents/reviewers.json", root)), "reviewer declarations exist")
-  for (const reviewer of reviewers) {
-    assert.ok(
-      existsSync(new URL(`skills/${reviewer.workflow}/SKILL.md`, root)),
-      `${reviewer.workflow} SKILL.md`,
-    )
+  assert.ok(existsSync(new URL("agents/kazforge-design-reviewer.md", root)))
+  assert.ok(existsSync(new URL("agents/kazforge-plan-reviewer.md", root)))
+  assert.ok(existsSync(new URL("agents/kazforge-implementation-reviewer.md", root)))
+  for (const id of ["design-review", "plan-review", "implementation-review"]) {
+    assert.ok(existsSync(new URL(`skills/${id}/SKILL.md`, root)), `${id} SKILL.md`)
   }
 })
 

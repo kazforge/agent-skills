@@ -6,8 +6,8 @@ import test from "node:test"
 import { Skill } from "@opencode/plugin"
 import { Session } from "@opencode/schema"
 
-import type { CommandRuntime, ReviewerDeclaration, ReviewInvocation } from "../index.ts"
-import { coreCommands, readCoreSkills, reviewers } from "../index.ts"
+import type { CommandRuntime, ReviewInvocation } from "../index.ts"
+import { coreCommands, readCoreSkills } from "../index.ts"
 
 const root = new URL("../", import.meta.url)
 
@@ -26,11 +26,11 @@ type PromptInput = Parameters<CommandRuntime["prompt"]>[0]
 /** A runtime that records both delivery paths instead of performing them. */
 function recordRuntime(): {
   prompts: PromptInput[]
-  reviews: Array<{ reviewer: ReviewerDeclaration; invocation: ReviewInvocation }>
+  reviews: Array<{ reviewer: string; invocation: ReviewInvocation }>
   runtime: CommandRuntime
 } {
   const prompts: PromptInput[] = []
-  const reviews: Array<{ reviewer: ReviewerDeclaration; invocation: ReviewInvocation }> = []
+  const reviews: Array<{ reviewer: string; invocation: ReviewInvocation }> = []
   return {
     prompts,
     reviews,
@@ -163,8 +163,7 @@ test("each review command runs through its dedicated reviewer, not the authoring
 
     assert.equal(prompts.length, 0, `${workflow} does not prompt the authoring session`)
     assert.equal(reviews.length, 1, `${workflow} starts one reviewer context`)
-    assert.equal(reviews[0].reviewer.workflow, workflow)
-    assert.equal(reviews[0].reviewer.agentID, reviewers.find((r) => r.workflow === workflow)?.agentID)
+    assert.equal(reviews[0].reviewer, workflow)
     assert.equal(reviews[0].invocation.sessionID, "ses_author")
     assert.deepEqual(reviews[0].invocation.prompt, invocation.prompt)
   }
