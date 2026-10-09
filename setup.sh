@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-# Retrieve directory of the setup script
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SKILLS_SRC="$SCRIPT_DIR/skills"
 COMMANDS_SRC="$SCRIPT_DIR/commands"
@@ -10,7 +9,6 @@ OPENCODE_COMMAND_DEST="$HOME/.config/opencode/command"
 CURSOR_DEST="$HOME/.cursor/skills"
 CODEX_DEST="$HOME/.agents/skills"
 
-# Create destination directories if they don't exist
 mkdir -p "$OPENCODE_DEST" "$OPENCODE_COMMAND_DEST" "$CURSOR_DEST" "$CODEX_DEST"
 
 echo "Linking agent skills from $SKILLS_SRC..."
@@ -19,7 +17,7 @@ for skill_dir in "$SKILLS_SRC"/*; do
   if [ -d "$skill_dir" ]; then
     skill_name=$(basename "$skill_dir")
 
-    # Create symbolic links (-n prevents nesting inside existing symlinks)
+    # -n prevents nesting inside existing symlinks.
     ln -sfn "$skill_dir" "$OPENCODE_DEST/$skill_name"
     ln -sfn "$skill_dir" "$CURSOR_DEST/$skill_name"
     ln -sfn "$skill_dir" "$CODEX_DEST/$skill_name"

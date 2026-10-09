@@ -8,10 +8,8 @@ description: Reviews whether a proposed technical design is sound, appropriately
 Ask: **Is the proposed technical design sound, appropriately simple, compatible with the
 repository's architecture and contracts, and preferable to credible simpler alternatives?**
 
-This is an independent challenge, not an endorsement and not a redesign. The separate
-`plan-review` skill owns whether an implementation approach is executable; this skill judges the
-design itself. Findings are advisory recommendations to the requester. Design Review does not
-edit the design, does not create a plan, and never authorizes implementation.
+Challenge the design, rather than endorse or redesign it. The separate `plan-review` skill
+owns executability. Do not create a plan as part of this review.
 
 ## Inputs
 
@@ -57,7 +55,7 @@ to the consumer repository and pass only:
 
 Carry no authoring-session reasoning, conclusions, narrative, hidden state or summarized review
 opinion. The fresh reviewer reads this skill and derives its own conclusions from the design and
-repository evidence, and reports **Unable to assess** when a required input is unavailable.
+repository evidence.
 
 ## Procedure
 
@@ -72,8 +70,8 @@ repository evidence, and reports **Unable to assess** when a required input is u
    - types or interfaces that make illegal states representable;
    - accidental complexity, new abstractions that existing mechanisms already cover, and
      unresolved competing approaches left side by side.
-5. Produce the required output of this review: a concrete simpler alternative that still meets
-   the requested outcome, or a specific explanation of why none survives the constraints.
+5. Give a concrete simpler alternative that still meets the requested outcome, or explain
+   specifically why none survives the constraints.
 6. Consolidate findings from an exhaustive pass. Return one set of material findings rather
    than a stream of minor observations.
 
@@ -84,7 +82,7 @@ impact and a recommendation. Severity describes the reviewer's recommendation on
 gate, and the requester may knowingly accept any trade-off.
 
 - **Blocking** — the reviewer believes implementation should not proceed without resolving this
-  concern. The requester may still accept it knowingly.
+  concern.
 - **Required** — the design is materially incomplete or incorrect in a way that does not, by
   itself, require a different architecture.
 - **Advisory** — optional improvement, simplification, wording or preference. An Advisory

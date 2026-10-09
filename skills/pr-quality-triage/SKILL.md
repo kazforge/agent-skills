@@ -9,12 +9,6 @@ argument-hint: "PR reference (e.g. owner/repo#123, #123, or URL) — add 'yolo' 
 Triage **CI and Sonar findings** on an existing pull request. Modify repository code when a
 finding still applies.
 
-GitHub PR review comments — human or bot, including CodeRabbit and ChatGPT — stay with
-`address-pr-comments`. This skill does not replace that workflow.
-
-This skill may diagnose and fix locally. It must **not** claim Sonar, Quality Gate, or zero-new-code
-completion from its own analysis. Post-push CI remains the authority.
-
 ## Input parsing
 
 - The first argument is the PR reference. Accept any of:
@@ -44,8 +38,6 @@ completion from its own analysis. Post-push CI remains the authority.
    results: findings belong to the PR head, not to unpushed or divergent local commits.
 
 ## Phase 2 — Verify freshness
-
-Do not fix findings from an older revision as though they apply to current code.
 
 1. Inspect CI for **this PR's head commit** (`pull_request_read` `method: get_check_runs` and
    `get_status`, or `gh pr checks` / equivalent). Prefer checks attached to the PR head SHA.
@@ -97,7 +89,7 @@ report that evidence is insufficient.
 
 ## Phase 5 — Classify
 
-Classify every finding as one of:
+Classify every finding:
 
 - **Applicable** — current code still exhibits the problem, the rule is a real fit, and a
   repository-local code change is the right response.
@@ -106,8 +98,8 @@ Classify every finding as one of:
 - **Apparently inapplicable** — the reported rule does not fit this code, or fixing it “to satisfy
   the analyzer” would change intended architecture or behavior.
 
-Be honest. A technically valid warning can still be a non-issue for this change. Do not optimize
-blindly for static analysis.
+A technically valid warning can still be a non-issue for this change. Do not optimize blindly
+for static analysis.
 
 ## Phase 6 — Act
 
@@ -128,7 +120,6 @@ Note it and skip. Do not reopen or otherwise mutate the remote issue.
 **Apparently inapplicable**
 
 Surface the evidence and rationale in the session (and in a PR comment only if the user asks).
-**Do not** remotely mark the issue false-positive, won't-fix, accepted, resolved, or equivalent.
 
 ## Phase 7 — Report and ship
 
@@ -155,8 +146,8 @@ as the completion signal — optionally re-enter this skill once that analysis i
   or any successor).
 - Change quality profiles, quality gates, project administration, webhooks, or other Sonar
   configuration.
-- Duplicate `address-pr-comments`. Leave GitHub review comments, review-bot threads, replies,
-  and thread resolution to that skill.
+- Handle GitHub review comments, review-bot threads, replies or thread resolution; those belong
+  to `address-pr-comments`.
 - Encode one repository's paths, Sonar project keys, tracker IDs, or maintainer usernames into
   this skill's behavior.
 - Treat a missing Sonar MCP installation as a repository failure. CI remains sufficient authority.

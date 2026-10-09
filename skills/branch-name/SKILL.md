@@ -8,12 +8,6 @@ disable-model-invocation: false
 
 Propose a branch name from the current working tree. Do **not** create the branch unless the user explicitly asks.
 
-## When to run
-
-- User requests a branch name.
-- User wants branch metadata before branching.
-- User is wrapping up work and needs a branch to continue it on.
-
 Skip when the user explicitly asks to create a branch — follow their branch workflow instead.
 
 ## Inspect first
@@ -45,15 +39,11 @@ Conventional Commits does not define branch names; use a lightweight parallel co
 | `test`     | Tests only                      |
 | `perf`     | Performance work                |
 
-Rules:
-
 - Lowercase, hyphen-separated; aim for ≤ 50 characters.
 - Name the outcome, not touched paths (`add-oauth-login`, not `update-auth-files`).
 - One coherent deliverable per branch; split unrelated work.
 
 ## Output format
-
-Return:
 
 ```markdown
 **Branch:** `type/slug`

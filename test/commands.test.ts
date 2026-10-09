@@ -23,7 +23,6 @@ type CommandDefinition = ReturnType<typeof coreCommands>[number]
 type CommandInvocation = Parameters<CommandDefinition["execute"]>[0]
 type PromptInput = Parameters<CommandRuntime["prompt"]>[0]
 
-/** A runtime that records both delivery paths instead of performing them. */
 function recordRuntime(): {
   prompts: PromptInput[]
   reviews: Array<{ reviewer: string; invocation: ReviewInvocation }>
@@ -45,7 +44,6 @@ function recordRuntime(): {
   }
 }
 
-/** A runtime that swallows both delivery paths, for registration tests. */
 function stubRuntime(): CommandRuntime {
   return { prompt: async () => {}, review: async () => {} }
 }

@@ -8,12 +8,6 @@ disable-model-invocation: false
 
 Propose a [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) message from the current working tree. Do **not** stage, commit, or push unless the user explicitly asks.
 
-## When to run
-
-- User requests a commit message.
-- User wants commit metadata before committing.
-- User is finishing a task and needs a conventional subject/body.
-
 Skip when the user explicitly asks to commit or push — follow their commit workflow instead.
 
 ## Inspect first
@@ -48,7 +42,7 @@ Follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.
 ### Optional elements
 
 - **scope** — noun in parentheses for the affected area: `feat(parser): add array support`.
-- **body** — blank line after description; short why-focused paragraph (1-2 lines). Only when the user asks for detail or the change's rationale isn't evident from the diff; otherwise omit.
+- **body** — optional why-focused paragraph (1-2 lines).
 - **footers** — blank line after body; git-trailer style (`Refs: #123`, `Reviewed-by: Name`). Use `BREAKING CHANGE: <description>` (or `BREAKING-CHANGE:`) for breaking changes. Footer lines wrap at ≤ 100 chars.
 
 ### Breaking changes
@@ -68,7 +62,7 @@ Unless the repository's `git log` clearly differs:
 - Imperative description: "add", "fix", "remove" — not "added" or "adds".
 - Header (type + scope + description) ≤ 100 characters, per commitlint's `header-max-length`.
 - Description must not be sentence-case, start-case, pascal-case, or upper-case (`subject-case`), and has no leading/trailing whitespace or trailing period (`subject-full-stop`).
-- Body and footer lines wrap at ≤ 100 characters (`body-max-line-length`, `footer-max-line-length`). There is no cap on total body length; keep it brief by taste (see below).
+- Body and footer lines wrap at ≤ 100 characters (`body-max-line-length`, `footer-max-line-length`); there is no total body-length limit.
 - Blank line between description and body, and between body and footers (`body-leading-blank`, `footer-leading-blank`).
 - Default to a **subject-only** message (single line). Add a brief (1-2 line) why-focused body only when the change's rationale isn't evident from the diff, or the user explicitly asks for more detail.
 - Split mixed-type changes into separate commits/messages when possible.
@@ -86,15 +80,13 @@ If the repository defines its own commitlint config (`commitlint.config.*`, `pac
 
 ## Output format
 
-Return:
-
 ```markdown
 **Commit:**
 ```
 type(scope): description
 ```
 
-Body (1-2 lines) only when the change's why isn't evident from the diff; footers only for breaking changes or trailers.
+Footers only for breaking changes or trailers.
 
 State that nothing was committed or pushed unless the user asked.
 

@@ -32,7 +32,6 @@ const workflowByAgent = Object.fromEntries(
   workflows.map((workflow) => [agentIds[workflow], workflow]),
 ) as Record<string, keyof typeof agentIds>
 
-/** The registered reviewer agents, readable by ID. */
 function registerReviewers(): Map<string, AgentDraft> {
   const skills = readCoreSkills()
   const agents = readReviewerAgents()
@@ -89,7 +88,6 @@ interface ReviewHarness {
   readonly notices: Array<{ sessionID: string; text: string; description: string }>
 }
 
-/** Record the reviewer handoff without a running OpenCode. */
 function reviewHarness(overrides: Partial<ReviewContext> = {}): ReviewHarness {
   const created: ReviewHarness["created"] = []
   const delivered: ReviewHarness["delivered"] = []
@@ -144,14 +142,12 @@ test("reviewer agents are declared as OpenCode agent Markdown and register as su
     assert.equal(agent.hidden, false)
     assert.equal(agent.model, undefined, `${agentID} keeps model inheritance`)
 
-    // The description comes from the skill the agent serves, not the agent file.
     assert.equal(
       agent.description,
       readCoreSkills().find((skill) => skill.id === workflow)?.description,
     )
     assert.ok(agent.description && agent.description.length > 0)
 
-    // The registration carries only what the agent file declares.
     const declared = agents[agentID] as ReviewerAgentDeclaration
     assert.deepEqual(agent.permissions.slice(-declared.permissions.length), declared.permissions)
   }
@@ -163,13 +159,11 @@ test("reviewers inspect the repository but cannot mutate or reach external syste
   for (const [workflow, agentID] of Object.entries(agentIds)) {
     const agent = registered.get(agentID)
     assert.ok(agent)
-    // Repository inspection is allowed.
     assert.equal(effectFor(agent, "read", "src/index.ts"), "allow")
     assert.equal(effectFor(agent, "grep", "**/*.ts"), "allow")
     assert.equal(effectFor(agent, "glob", "**/*.ts"), "allow")
     assert.equal(effectFor(agent, "read", ".env.example"), "allow")
 
-    // Mutation, delegation and external systems are denied by default.
     assert.equal(effectFor(agent, "edit", "src/index.ts"), "deny")
     assert.equal(effectFor(agent, "question", "*"), "deny")
     assert.equal(effectFor(agent, "subagent", "explore"), "deny")
@@ -179,7 +173,6 @@ test("reviewers inspect the repository but cannot mutate or reach external syste
     assert.equal(effectFor(agent, "external_directory", "/tmp/elsewhere"), "deny")
     assert.equal(effectFor(agent, "linear.create_issue", "*"), "deny")
 
-    // Secrets stay denied even though repository reads are allowed.
     assert.equal(effectFor(agent, "read", ".env"), "deny")
     assert.equal(effectFor(agent, "read", "config/.env.local"), "deny")
 
@@ -215,7 +208,6 @@ test("a review starts in a child reviewer session with only the review contract"
       skills: ["design-review"],
     },
   })
-  // The stray agent mention and the requester's other skill selection are not carried.
   assert.ok(!("agents" in harness.delivered[0].contract))
   assert.equal(harness.notices.length, 1)
   assert.match(harness.notices[0].text, /Design Review is running/)
@@ -228,9 +220,7 @@ test("pinned session rules keep the reviewer profile against wider host rules", 
   assert.ok(registered)
   const permissions = readReviewerAgents()["kazforge-design-reviewer"].permissions
 
-  // OpenCode appends host-wide configuration rules to every agent and
-  // evaluates the last matching rule, so a host "allow everything" rule would
-  // otherwise widen the reviewer. Session rules merge after agent rules.
+  // Reproduce OpenCode's merge order: agent, host configuration, then session rules.
   const withHostRules = {
     ...registered,
     permissions: [

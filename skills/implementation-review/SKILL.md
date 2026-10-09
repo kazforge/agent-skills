@@ -8,10 +8,8 @@ description: Independently evaluates whether an actual change-set correctly sati
 Ask: **Does the actual change correctly satisfy the requested outcome and acceptance intent, and
 remain compatible with the repository's contracts and rules?**
 
-This reviews the implementation itself, not adherence to a plan. A plan may provide useful
-orientation, but it is never correctness authority, never a substitute for the requested outcome or
-acceptance intent, and divergence from it is not a defect by itself. The reviewer does not fix
-findings or modify the repository unless the requester separately asks.
+A plan is orientation, not correctness authority or a substitute for the requested outcome and
+acceptance intent. Divergence from it is not a defect by itself. Fixes require a separate request.
 
 ## Inputs
 
@@ -63,8 +61,7 @@ consumer repository and pass only:
 
 Carry no authoring-session reasoning, conclusions, narrative, hidden state or summarized review
 opinion. The fresh reviewer reads this skill, establishes the change-set boundary, derives its own
-conclusions from the change and repository evidence, and reports **Blocked** when a required input
-is unavailable.
+conclusions from the change and repository evidence.
 
 ## Procedure
 
