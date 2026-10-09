@@ -8,9 +8,7 @@ description: Reviews whether an implementation plan or approach is executable wi
 Ask: **Can an implementer proceed on the requested outcome without inventing material
 product or design behavior — and does the approach over-specify harmless local detail?**
 
-This reviews executability, not design soundness: whether the architecture itself is sound is
-owned by the separate `design-review` skill. Findings are advisory recommendations to the
-requester. Plan Review does not edit or rewrite the plan and never authorizes implementation.
+Review executability, not design soundness, which belongs to the separate `design-review` skill.
 
 ## Inputs
 
@@ -59,7 +57,7 @@ to the consumer repository and pass only:
 
 Carry no authoring-session reasoning, conclusions, narrative, hidden state or summarized review
 opinion. The fresh reviewer reads this skill and derives its own conclusions from the plan and
-repository evidence, and reports **Unable to assess** when a required input is unavailable.
+repository evidence.
 
 ## Procedure
 
@@ -84,9 +82,8 @@ Review these dimensions in one exhaustive pass:
    flow, and internal test-helper design. Flag this separately from material gaps; it constrains
    the implementer without reducing risk.
 
-Stay within executability. Do not turn Plan Review into a second design contest: if a genuine
-unresolved architectural choice blocks execution, report it as a concern and point to the
-separate `design-review` skill instead of resolving it here.
+If an unresolved architectural choice blocks execution, report it as a concern and point to
+`design-review` instead of resolving it here.
 
 ## Findings and severity
 
@@ -95,7 +92,7 @@ and a specific recommendation. Severity is a recommendation to the requester, no
 trade-off may be knowingly accepted.
 
 - **Blocking** — the reviewer believes implementation should not proceed without resolving this
-  concern. The requester may still accept it knowingly.
+  concern.
 - **Required** — the plan is materially incomplete or incorrect in a way that does not, by
   itself, require a different architecture.
 - **Advisory** — optional improvement, wording, preference, or over-specification of harmless

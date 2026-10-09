@@ -10,9 +10,6 @@ repository-agnostic: discover architecture, verification commands, tests, docume
 ownership and engineering policy from the consumer repository instead of assuming names,
 paths or a stack.
 
-Planning never authorizes implementation. See
-[Implementation authorization](#implementation-authorization).
-
 ## Context
 
 **Work context (required).** The requested outcome and the acceptance intent at the level
@@ -79,10 +76,9 @@ repository contracts.
 
 ## Optional working plan
 
-A working plan is optional, non-authoritative, disposable working memory. It is not backlog,
-not architecture truth, not a merge gate and not permission to implement. Use one when it
-helps reasoning or context transport, and skip it when it does not; the absence of a plan
-file is not a planning failure. A plan need not match the final implementation.
+A working plan is optional, non-authoritative, disposable working memory, not backlog,
+architecture truth or a merge gate. Use one when it helps reasoning or context transport;
+its absence is not a planning failure. It need not match the final implementation.
 
 Keep the plan in the session by default. Persist it only when useful and only when the
 execution environment allows scratch writes. No fixed path, directory convention or
@@ -121,18 +117,14 @@ only the resulting fact when it matters later. Delete the spike when it is no lo
 
 If execution is unavailable, report the limitation rather than working around it. If a spike
 stops answering its question and starts building production behavior, stop the spike and
-return to planning. A spike never grants implementation authorization.
+return to planning.
 
 ## Implementation authorization
 
-Planning ends ready for implementation; it does not begin it. Planning completion —
-including any accepted review of the approach — never authorizes implementation.
-Implementation begins only when the requester or coordinating layer explicitly authorizes
-it, as a separate action rather than a side effect of planning. Report readiness and stop.
+Neither planning, spikes nor an accepted review authorize implementation. It requires separate
+explicit authorization from the requester or coordinating layer. Report readiness and stop.
 
 ## Report
-
-Report:
 
 - one coherent increment, or **Needs decomposition**;
 - facts established, and material facts that remain unresolved;

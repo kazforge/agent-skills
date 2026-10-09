@@ -6,8 +6,6 @@ argument-hint: "PR reference (e.g. owner/repo#123, #123, or URL) — add 'yolo' 
 
 # Address PR Comments
 
-Work through the comments of a GitHub pull request: read them, assess which are reasonable, plan the changes, implement them after approval, and — when approved — commit, push, and reply on the PR.
-
 ## Input parsing
 
 - The first argument is the PR reference. Accept any of:
@@ -46,7 +44,7 @@ Be honest about reasonableness: a comment can be technically valid but a non-iss
 
 ## Phase 3 — Plan and approval
 
-Produce a plan containing:
+Include:
 
 - **Changes**: per-file list of edits grouped by topic, with the thread(s) each change addresses.
 - **Replies**: per-thread and per-comment draft reply text. For addressed threads, summarize the fix. For declined threads, give a concise technical justification. For questions, answer them.

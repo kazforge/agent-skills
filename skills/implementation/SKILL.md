@@ -8,9 +8,9 @@ description: Implements a requested outcome as the smallest coherent change, dis
 Implement the **requested outcome and acceptance intent**. Judge success by the result in the
 repository, not by adherence to a plan.
 
-This skill is repository-agnostic: discover architecture, ownership, engineering rules, verification
-commands, documentation obligations and completion expectations from the consumer repository. Never
-assume a stack, build tool, file layout, tracker or scratch path.
+Discover architecture, ownership, engineering rules, verification, documentation obligations and
+completion expectations from the consumer repository. Never assume a stack, build tool, file layout,
+tracker or scratch path.
 
 Implementation begins only when the requester explicitly asks for the change. A plan, planning
 output or review verdict is context, never authorization.
