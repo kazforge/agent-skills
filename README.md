@@ -14,7 +14,7 @@ are documented roles, not a directory hierarchy or a registry.
 | --- | --- |
 | **Core workflow skills** | Repository-agnostic planning, review and implementation instructions in `skills/<name>/SKILL.md`. `implementation-planning`, `design-review`, `plan-review`, `implementation` and `implementation-review` have landed. |
 | **Optional support skills** | Convenient, independently usable helpers in the same `skills/<name>/SKILL.md` layout. They may rely on particular tools or support conventions. |
-| **Harness/distribution support** | The thin OpenCode plugin boundary in `index.ts` (which registers the Core skills and exposes each as a command), OpenCode invocation wrappers in `commands/*.md` for support skills, and local symlink installation in `setup.sh`. None defines Core policy or is required by Core semantics. |
+| **Harness/distribution support** | The thin OpenCode plugin boundary in `index.ts` (which registers the Core skills, the reviewer agents declared in `agents/reviewers.json`, and exposes each Core workflow as a command), OpenCode invocation wrappers in `commands/*.md` for support skills, and local symlink installation in `setup.sh`. None defines Core policy or is required by Core semantics. |
 
 The Core skills available so far, plus the optional support skills:
 
@@ -116,10 +116,37 @@ reimplemented as plugin code. The plugin reads each skill's description from the
 same frontmatter rather than storing a second copy, so a command never becomes a
 second source of workflow truth.
 
+### Declarative first, runtime code only where required
+
+Definitions are declarative and OpenCode-native wherever OpenCode can express
+them. The boundary is: use native declarative OpenCode configuration for
+definitions, and use TypeScript only for runtime behavior, orchestration and
+safety that such configuration cannot express.
+
+| Concern | Owner |
+| --- | --- |
+| Workflow semantics and descriptions of Core skills | `skills/<name>/SKILL.md` |
+| Reviewer agents: mode, permissions, visibility | `agents/<agent-id>.md`, OpenCode agent Markdown |
+| Reviewer agent descriptions | derived at registration from the corresponding `skills/<name>/SKILL.md` frontmatter |
+| Fresh child reviewer sessions, narrow contract delivery, explicit fallback | `index.ts` runtime |
+| `permission.evaluate` shell approval for the Implementation Reviewer | `index.ts` runtime |
+| Review workflow to reviewer agent mapping | `index.ts`, one entry per review workflow |
+| Plugin registration of packaged agents, skills and commands | `index.ts` glue |
+
+Unavoidable packaging glue is kept to the public plugin API. OpenCode 2.0 discovers
+agent Markdown only from its own configuration roots, not from inside a plugin
+package, so `index.ts` reads the packaged `agents/*.md` files and applies them
+through `ctx.agent.transform`, and registers the five Core commands through
+`ctx.command.transform`. Non-review commands are direct adapters because a
+packaged command cannot be loaded natively. New workflows should add a skill
+and, only if they need a review context, an agent file plus one entry in the
+workflow mapping; they should not add a registry, schema, DSL or code generator.
+
 ### Reviewer agents
 
-The plugin registers one reviewer agent per review workflow, as OpenCode
-subagents with stable, collision-safe IDs:
+The plugin registers one reviewer agent per review workflow from
+`agents/<agent-id>.md`, ordinary OpenCode agent Markdown, as subagents with
+stable, collision-safe IDs:
 
 | Agent ID | Role | Repository access |
 | --- | --- | --- |
@@ -139,13 +166,20 @@ conclusions, narrative and other selected skills are not passed, so the
 reviewer derives its findings independently from the contract and repository
 evidence.
 
-Reviewer permissions are declared with OpenCode's native per-rule permissions:
-a deny-all base with `read`, `grep`, `glob` and `skill` allowed, secrets denied,
-and for the implementation reviewer `shell: ask` so each repository verification
-command needs explicit approval. The same rule set is pinned on the reviewer
-session (session rules are evaluated after agent rules), so globally configured
-permission rules cannot widen a reviewer into mutation, and the deny-all base is
-a hard deny for mutation that saved grants cannot override.
+Reviewer permissions are declared in the agents' own Markdown files, using
+OpenCode's native per-rule permissions: a deny-all base with `read`, `grep`,
+`glob` and `skill` allowed, secrets denied, and for the implementation reviewer
+`shell: ask` so each repository verification command needs explicit approval.
+The same declared rule set is pinned on the reviewer session (session rules are
+evaluated after agent rules), so globally configured permission rules cannot
+widen a reviewer into mutation, and the deny-all base is a hard deny for mutation
+that saved grants cannot override.
+
+Agent files declare mechanics only. Their descriptions are not written twice:
+the plugin takes each description from the corresponding
+`skills/<name>/SKILL.md` frontmatter, so review semantics keep a single source of
+truth. Review workflows are mapped to their reviewer agent ID in the plugin,
+because the runtime must know which fresh child agent to start.
 
 Verification approval is enforced separately: OpenCode appends saved
 project-level allow grants after agent and session rules, and a saved shell

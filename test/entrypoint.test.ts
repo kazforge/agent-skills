@@ -20,6 +20,16 @@ test("package root export points to the existing entrypoint", () => {
   assert.equal(fileURLToPath(entry), fileURLToPath(new URL("index.ts", root)))
 })
 
+test("reviewer agents are packaged as OpenCode agent Markdown and each workflow has its skill", () => {
+  assert.ok(pkg.files.includes("agents"), "agents directory is packaged")
+  assert.ok(existsSync(new URL("agents/kazforge-design-reviewer.md", root)))
+  assert.ok(existsSync(new URL("agents/kazforge-plan-reviewer.md", root)))
+  assert.ok(existsSync(new URL("agents/kazforge-implementation-reviewer.md", root)))
+  for (const id of ["design-review", "plan-review", "implementation-review"]) {
+    assert.ok(existsSync(new URL(`skills/${id}/SKILL.md`, root)), `${id} SKILL.md`)
+  }
+})
+
 test("reusable workflow skills stay the semantic source and are packaged", () => {
   assert.ok(pkg.files.includes("skills"), "skills directory is packaged")
   for (const id of [
