@@ -24,7 +24,7 @@
     "gray-matter": "4.0.3"
   },
   "overrides": {
-    "@aws-sdk/credential-provider-http": "3.972.74"
+    "@aws-sdk/credential-provider-http": "3.972.75"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
