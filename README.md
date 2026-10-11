@@ -43,17 +43,54 @@ only for runtime behavior or safety that cannot be expressed cleanly declarative
 | OpenCode agent mechanics | `agents/<agent-id>.md` |
 | Plugin registration, fresh reviewer sessions and permission safety | `index.ts` |
 | Optional support command wrappers | `commands/*.md` |
-| Local symlink installation | `setup.sh` |
 
 Core and support are documented roles in the same flat skills directory, not
-separate registries. Command and reviewer descriptions come from skill frontmatter.
+separate registries. Core command and reviewer descriptions come from skill frontmatter;
+support command descriptions come from their Markdown wrappers.
 
 ## Install and use with OpenCode
+
+Install globally with OpenCode V2 (the plugin targets the 2.0.26 API):
+
+```sh
+opencode plugin add github:kazforge/agent-skills
+opencode service restart
+opencode plugin list
+```
+
+OpenCode installs the Git package and its dependencies. No npm publication,
+symlinks, generated configuration or consumer-repository files are required.
+All nine skills, the five Core commands, four support commands and three reviewer
+agents are exposed from packaged Markdown through thin public-API adapters.
+Read support skills' tool requirements before using them.
+
+### Update and remove
+
+```sh
+opencode plugin check
+opencode plugin update github:kazforge/agent-skills
+opencode service restart
+```
+
+For reproducibility, install `github:kazforge/agent-skills#<full-commit-sha>`
+instead. Full commit pins are skipped by updates; remove the configured target
+before adding another revision. Use `opencode plugin list` to find its exact spelling.
+
+```sh
+opencode plugin remove github:kazforge/agent-skills
+opencode service restart
+```
+
+Removal removes the configured plugin entry; no plugin-owned global files or links
+need cleanup. OpenCode manages its package cache. Skills remain readable in the
+repository and reusable independently of the plugin.
+
+### Local development
 
 From this checkout, install dependencies:
 
 ```sh
-npm install
+npm ci
 ```
 
 Point an `opencode.jsonc` at the checkout directory, then restart OpenCode:
@@ -64,6 +101,11 @@ Point an `opencode.jsonc` at the checkout directory, then restart OpenCode:
   "plugins": ["/absolute/path/to/agent-skills"]
 }
 ```
+
+Use a global configuration for access across repositories. Do not load the Git
+package and checkout simultaneously. After pulling or editing the checkout,
+restart OpenCode; package update commands skip local paths. To remove the local
+plugin, delete only its entry from `plugins` and restart.
 
 The plugin registers all five Core skills and commands named after them:
 `/implementation-planning`, `/design-review`, `/plan-review`, `/implementation`
@@ -99,22 +141,24 @@ If a reviewer is unavailable or its session cannot be created or receive the
 request, the command reports the limitation instead of reviewing in the authoring
 session. Follow the review skill's fresh-session fallback.
 
-### Local skill and support-command linking
+### Migrate from setup.sh
 
-To expose all skills, including optional support skills, run:
+The multi-harness installer has been removed. Install the plugin, remove any old
+checkout plugin entry if switching to Git installation, then inspect these legacy
+destinations:
 
-```sh
-bash setup.sh
-```
+- `~/.config/opencode/skills/`
+- `~/.config/opencode/command/` (the old singular directory)
+- `~/.cursor/skills/`
+- `~/.agents/skills/`
 
-The script links skills into `~/.config/opencode/skills/`, `~/.cursor/skills/`
-and `~/.agents/skills/`, and support command wrappers into
-`~/.config/opencode/command/`. It creates destination directories and replaces
-same-named symlinks; inspect existing entries before running it. Keep the
-checkout at its linked location and restart OpenCode after changes.
-
-The OpenCode plugin does not require these links for Core workflows. Read each
-skill's tool requirements before using it.
+For each old skill or command entry, use `test -L /path/to/entry` and
+`readlink /path/to/entry` to confirm it is a symlink targeting your old checkout's
+`skills/` or `commands/` directory. This also identifies broken links if the
+checkout moved or was deleted. Remove only confirmed links with
+`unlink /path/to/entry`; never delete whole destination directories, real files,
+or same-named links targeting another collection. Restart OpenCode afterward.
+No automatic global migration or Cursor/Codex installation support remains.
 
 ## Contributing and maintenance
 
@@ -137,6 +181,6 @@ Packaged definitions require plugin registration because native discovery does
 not load them from inside a plugin package.
 
 Run `npm test` and `npm run typecheck` after changes. For a manual plugin check
-without setup links, confirm the five Core skills and commands appear through
+without setup links, confirm all nine skills and commands appear through
 `opencode api get /api/skill` and `opencode api get /api/command` once a session
 exists, then invoke a Core command with a sample request.
