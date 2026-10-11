@@ -44,7 +44,17 @@ an action or verification that did not happen. Report what was not run and the a
 2. Read a supplied plan or approach as orientation only; divergence from it is not failure by
    itself.
 3. Investigate before asking: repository state, relevant guidance, contracts, and affected code and
-   tests answer most questions.
+    tests answer most questions.
+
+## Delegated execution
+
+Direct use of this skill remains valid without a plugin, child agent or formal plan. When a
+coordinator delegates to a dedicated worker, the worker receives only an explicit, authorized,
+context-rich handoff — outcome, acceptance intent, the actual plan or an accessible reference,
+accepted decisions and constraints — never the authoring conversation. A worker returns the change
+and the checks it ran, stops at missing inputs or material deviations instead of redesigning, and
+never performs separately authorized commit, push, merge, PR or tracker actions or starts its own
+review. The coordinator owns user decisions and the independent review.
 
 ## Implement the smallest coherent change
 
@@ -75,8 +85,10 @@ the result as unverified rather than assuming it passed.
 ## Request independent implementation review
 
 When the environment can run an independent review context, request it using the separate
-`implementation-review` skill. Pass the requested outcome and acceptance intent directly; a plan is
-optional context at most.
+`implementation-review` skill. Pass the requested outcome and acceptance intent directly, plus any
+approved plan and accepted design decisions as agreed-intent evidence, not incidental correctness
+requirements. Pass the diff boundary for independent inspection, not implementation reasoning or
+conclusions. A supplied plan remains optional.
 
 Fresh context that did not author the change is the desired assurance property, not a required
 subagent or session mechanism. Use whatever isolation the environment allows, and state the

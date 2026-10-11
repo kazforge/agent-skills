@@ -46,6 +46,19 @@ Each skill has a slash command with the same name:
 
 Arguments are optional. Planning and review do not authorize implementation.
 
+`/implementation` stays in the parent. After explicit implementation authorization it assembles a
+reviewable handoff — outcome and acceptance intent, the actual plan or an accessible reference,
+accepted decisions, constraints and repository context — and delegates through OpenCode's native
+subagent tool to `kazforge-implementer`; it never implements in the parent as a fallback. Planning or
+a review alone never authorizes implementation. Configure `agents.kazforge-implementer.model`
+natively, or leave it unset to inherit the parent's model. Direct use of the portable implementation
+skill needs no plugin and no formal plan.
+
+The worker edits and asks approval before verification commands. It returns the changed paths and
+diff boundary, decisions and deviations, executed checks and blockers; material deviations come back
+for a user decision. Commit, push and merge remain separate authorized actions, and the parent keeps
+the agreed intent for the independent implementation review without forwarding worker reasoning.
+
 Review commands start a fresh child session with the matching reviewer:
 
 | Agent ID | Role |
@@ -106,7 +119,7 @@ package updates skip local paths. To remove it, delete its plugin entry and rest
 Keep workflow instructions in `skills/<name>/SKILL.md` with `name` and
 `description` frontmatter. Keep skills repository-agnostic and list them here.
 Use native Markdown for definitions and TypeScript only for necessary runtime glue.
-Core workflows need an entry in `index.ts`; reviewers also need an `agents/*.md`
+Core workflows need an entry in `index.ts`; dedicated agents also need an `agents/*.md`
 file and mapping. Support wrappers live in `commands/`, named after their skills;
 do not add duplicate Core wrappers.
 

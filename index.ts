@@ -52,6 +52,7 @@ export interface ReviewerAgentDeclaration {
   readonly mode: "subagent" | "primary" | "all"
   readonly hidden?: boolean
   readonly permissions: readonly PermissionRule[]
+  readonly system?: string
 }
 
 // OpenCode discovers agent Markdown only in configuration roots, not plugin packages.
@@ -65,6 +66,7 @@ export function applyReviewerAgents(
       draft.description = descriptions[agentID]
       draft.mode = agent.mode
       draft.hidden = agent.hidden ?? false
+      if (agent.system) draft.system = agent.system
       draft.permissions.push(...agent.permissions)
     })
   }
@@ -79,14 +81,14 @@ export interface ReviewerPermissionEvaluation {
   message?: string
 }
 
-// Saved project grants are evaluated after session rules, so force reviewer shell
+// Saved project grants are evaluated after session rules, so force worker/reviewer shell
 // access back to explicit approval. Hard denies are resolved before saved grants.
 export function reviewerPermissionPolicy(evaluation: ReviewerPermissionEvaluation): void {
-  if (evaluation.agent !== verificationAgent) return
+  if (evaluation.agent !== verificationAgent && evaluation.agent !== "kazforge-implementer") return
   if (evaluation.action !== "shell") return
   if (evaluation.effect !== "allow") return
   evaluation.effect = "ask"
-  evaluation.message = "Implementation Reviewer verification commands require explicit approval."
+  evaluation.message = "Implementation and review shell commands require explicit approval."
 }
 
 // Not every evaluation names the executing agent; some supply only a session ID.
@@ -126,10 +128,13 @@ export interface ReviewInvocation {
 
 export interface ReviewContext {
   readonly available: (agentId: string) => Promise<boolean>
+  /** The reviewer agent's configured model, else the parent session's, else undefined. */
+  readonly model: (agentId: string, parentSessionID: string) => Promise<ReviewerModelRef | undefined>
   readonly create: (input: {
     readonly parentID: string
     readonly title: string
     readonly agent: string
+    readonly model?: ReviewerModelRef
     readonly permissions: readonly PermissionRule[]
   }) => Promise<{ readonly id: string }>
   readonly deliver: (input: {
@@ -138,6 +143,31 @@ export interface ReviewContext {
   }) => Promise<unknown>
   /** Display a notice without prompting the session's agent. */
   readonly notice: (sessionID: string, text: string, description: string) => Promise<unknown>
+}
+
+export interface ReviewerAgentLookup {
+  readonly model?: ReviewerModelRef
+}
+
+/** Native model reference as carried by agent and session configuration. */
+export interface ReviewerModelRef {
+  readonly providerID: string
+  readonly id: string
+  readonly variant?: string
+}
+
+// Programmatic session creation does not apply the agent's configured model or inherit the
+// parent session's model, so resolve it explicitly for the reviewer child session.
+export async function resolveReviewerModel(
+  getAgent: (agentID: string) => Promise<ReviewerAgentLookup | undefined>,
+  getSession: (sessionID: string) => Promise<ReviewerAgentLookup | undefined>,
+  agentId: string,
+  parentSessionID: string,
+): Promise<ReviewerModelRef | undefined> {
+  const reviewer = await getAgent(agentId).catch(() => undefined)
+  if (reviewer?.model !== undefined) return reviewer.model
+  const parent = await getSession(parentSessionID).catch(() => undefined)
+  return parent?.model
 }
 
 export async function startReview(
@@ -172,10 +202,14 @@ export async function startReview(
 
   let sessionID: string
   try {
+    const model = await context.model(role.agentId, invocation.sessionID).catch(() => undefined)
     const session = await context.create({
       parentID: invocation.sessionID,
       title: role.title,
       agent: role.agentId,
+      // Programmatic session creation does not inherit the agent or parent model,
+      // so pass the resolved model explicitly; omit it to keep native defaults.
+      ...(model === undefined ? {} : { model }),
       // Session rules override agent/host rules and replace authoring-session grants.
       permissions: readReviewerAgents()[role.agentId].permissions,
     })
@@ -234,13 +268,14 @@ export default Plugin.define({
   id: "kazforge.agent-skills",
   async setup(ctx) {
     const skills = readPackagedSkills()
-    const agents = readReviewerAgents()
+    const agents = readPackagedAgents()
     const descriptions = Object.fromEntries(
       reviewerWorkflows.flatMap((workflow) => {
         const description = skills.find((skill) => skill.id === workflow)?.description
         return description === undefined ? [] : [[agentIds[workflow], description]]
       }),
     )
+    descriptions["kazforge-implementer"] = "Implements an explicitly authorized outcome from a complete approved handoff; returns changes, checks and material blockers to the parent."
     try {
       await ctx.agent.transform((editor) => applyReviewerAgents(editor, agents, descriptions))
     } catch {
@@ -283,8 +318,14 @@ export default Plugin.define({
                 return false
               }
             },
-            create: async ({ parentID, title, agent, permissions }) => {
-              const session = await ctx.session.create({ parentID, agent, title, permissions })
+            model: (agent, parentSessionID) => resolveReviewerModel(
+              async (agentID) => (await ctx.agent.get({ agentID })).data,
+              (sessionID) => ctx.session.get({ sessionID }),
+              agent,
+              parentSessionID,
+            ),
+            create: async ({ parentID, title, agent, model, permissions }) => {
+              const session = await ctx.session.create({ parentID, agent, title, permissions, model })
               return { id: session.id }
             },
             deliver: async ({ sessionID, contract }) => {
@@ -373,6 +414,7 @@ export function coreCommands(
         await runtime.prompt({
           ...prompt,
           sessionID,
+          text: id === "implementation" ? implementationCoordinatorPrompt(prompt.text) : prompt.text,
           skills: selected.some((candidate) => candidate.id === id)
             ? selected
             : [...selected, { id }],
@@ -389,10 +431,59 @@ export function readReviewerAgents(): Record<string, ReviewerAgentDeclaration> {
   )
 }
 
+export function readPackagedAgents(): Record<string, ReviewerAgentDeclaration> {
+  return {
+    ...readReviewerAgents(),
+    "kazforge-implementer": readAgentFile("kazforge-implementer"),
+  }
+}
+
+export function implementationCoordinatorPrompt(request: string): string {
+  return `You are the implementation coordinator. Do not author the change in this parent session.
+Your first, highest-priority step is the authorization check below; complete it before anything else.
+
+Authorization check. Implementation is authorized when the requester asks for it — an explicit request
+to implement, apply, make the change, or go ahead with implementation; invoking this command with a
+change to make is such a request. Approving, accepting or praising a plan, design or review; calling
+something ready, good or LGTM; declining to give further input; being able to delegate; or a worker
+agent existing does not authorize implementation on its own. If the requester withholds authorization
+or asks only what implementation would involve, do not act: use the question tool to ask the requester
+to authorize implementation, then stop — do not delegate and do not change files.
+
+Only when the check passes, quote the authorizing words, then resolve the outcome and acceptance
+intent and display a reviewable handoff carrying:
+- the explicit authorization and its scope;
+- the outcome and acceptance intent;
+- the actual supplied plan content, or an unambiguous accessible reference, never a summary in its place;
+- accepted design decisions;
+- material constraints;
+- relevant repository evidence and location;
+- known pre-existing changes;
+- optional inputs not supplied;
+- the expected completion report.
+Do not forward the planning conversation or rejected alternatives. If essential context is missing or
+a material choice is unresolved, ask the user before delegating. If this session forbids
+implementation, say the user must switch agents; do not bypass that through delegation. If delegation
+is unavailable, report the limitation; do not implement here as fallback.
+
+Delegate with the native subagent tool in foreground, agent kazforge-implementer, and the handoff as
+its prompt. Do not hardcode a model. If the agent or tool is unavailable, report the limitation.
+Material deviations come back for a user decision; do not authorize a revised scope yourself.
+
+On completion, keep the outcome, acceptance intent and agreed decisions for the separate
+implementation review, and pass the reported change boundary — not the child's reasoning or
+conclusions — for independent inspection. The worker must not start its own review; the parent
+follows the implementation skill's bounded review procedure. Commit, push, merge, pull requests and
+tracker changes stay separate authorized actions.
+
+Implementation request:
+${request}`
+}
+
 function readAgentFile(agent: string): ReviewerAgentDeclaration {
   const path = fileURLToPath(new URL(`agents/${agent}.md`, packagedRoot))
-  const { data } = matter(readFileSync(path, "utf8"))
-  return data as ReviewerAgentDeclaration
+  const { data, content } = matter(readFileSync(path, "utf8"))
+  return { ...data, system: content.trim() || undefined } as ReviewerAgentDeclaration
 }
 
 function readSkill(id: string): Skill.Info {
