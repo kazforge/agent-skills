@@ -25,7 +25,7 @@ test("the packed artifact registers every packaged workflow without checkout ass
     assert.ok(!files.includes("setup.sh"))
     assert.equal(files.filter((path: string) => path.endsWith("/SKILL.md")).length, 9)
     assert.equal(files.filter((path: string) => path.startsWith("commands/")).length, 4)
-    assert.equal(files.filter((path: string) => path.startsWith("agents/")).length, 3)
+    assert.equal(files.filter((path: string) => path.startsWith("agents/")).length, 4)
 
     execFileSync("tar", ["-xzf", `${scratch}/${output.filename}`, "-C", scratch])
     // Dependency resolution only: declarative assets must come from the artifact.
@@ -54,7 +54,7 @@ test("the packed artifact registers every packaged workflow without checkout ass
     }))
     assert.equal(result.skills.length, 9)
     assert.equal(result.commands.length, 9)
-    assert.equal(result.agents.length, 3)
+    assert.equal(result.agents.length, 4)
     for (const skill of result.skills) {
       assert.ok(resolve(skill.path).startsWith(resolve(scratch, "package", "skills") + sep))
     }

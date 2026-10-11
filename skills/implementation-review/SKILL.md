@@ -55,6 +55,9 @@ consumer repository and pass only:
 
 - the review type and skill to follow: implementation review;
 - the requested outcome and acceptance intent;
+- any approved plan (actual content or an accessible unambiguous reference), accepted design
+  decisions and material constraints, as evidence of agreed intent rather than a requirement to
+  reproduce incidental implementation details;
 - the change set when supplied as a diff, pull request, commit range or base branch, or enough
   state for the reviewer to establish it;
 - how to return the result: findings and verdict reported in the session, no artifact.
@@ -62,6 +65,10 @@ consumer repository and pass only:
 Carry no authoring-session reasoning, conclusions, narrative, hidden state or summarized review
 opinion. The fresh reviewer reads this skill, establishes the change-set boundary, derives its own
 conclusions from the change and repository evidence.
+
+An approved plan and accepted decisions are permitted intent evidence, not authoring conclusions.
+Do not forward the implementer's reasoning or completion verdict as review authority. Independently
+inspect the diff and verify reported checks rather than assuming the completion report is correct.
 
 ## Procedure
 

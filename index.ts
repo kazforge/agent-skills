@@ -52,6 +52,7 @@ export interface ReviewerAgentDeclaration {
   readonly mode: "subagent" | "primary" | "all"
   readonly hidden?: boolean
   readonly permissions: readonly PermissionRule[]
+  readonly system?: string
 }
 
 // OpenCode discovers agent Markdown only in configuration roots, not plugin packages.
@@ -65,6 +66,7 @@ export function applyReviewerAgents(
       draft.description = descriptions[agentID]
       draft.mode = agent.mode
       draft.hidden = agent.hidden ?? false
+      if (agent.system) draft.system = agent.system
       draft.permissions.push(...agent.permissions)
     })
   }
@@ -79,14 +81,14 @@ export interface ReviewerPermissionEvaluation {
   message?: string
 }
 
-// Saved project grants are evaluated after session rules, so force reviewer shell
+// Saved project grants are evaluated after session rules, so force worker/reviewer shell
 // access back to explicit approval. Hard denies are resolved before saved grants.
 export function reviewerPermissionPolicy(evaluation: ReviewerPermissionEvaluation): void {
-  if (evaluation.agent !== verificationAgent) return
+  if (evaluation.agent !== verificationAgent && evaluation.agent !== "kazforge-implementer") return
   if (evaluation.action !== "shell") return
   if (evaluation.effect !== "allow") return
   evaluation.effect = "ask"
-  evaluation.message = "Implementation Reviewer verification commands require explicit approval."
+  evaluation.message = "Implementation and review shell commands require explicit approval."
 }
 
 // Not every evaluation names the executing agent; some supply only a session ID.
@@ -234,13 +236,14 @@ export default Plugin.define({
   id: "kazforge.agent-skills",
   async setup(ctx) {
     const skills = readPackagedSkills()
-    const agents = readReviewerAgents()
+    const agents = readPackagedAgents()
     const descriptions = Object.fromEntries(
       reviewerWorkflows.flatMap((workflow) => {
         const description = skills.find((skill) => skill.id === workflow)?.description
         return description === undefined ? [] : [[agentIds[workflow], description]]
       }),
     )
+    descriptions["kazforge-implementer"] = "Implements an explicitly authorized outcome from a complete approved handoff; returns changes, checks and material blockers to the parent."
     try {
       await ctx.agent.transform((editor) => applyReviewerAgents(editor, agents, descriptions))
     } catch {
@@ -373,6 +376,7 @@ export function coreCommands(
         await runtime.prompt({
           ...prompt,
           sessionID,
+          text: id === "implementation" ? implementationCoordinatorPrompt(prompt.text) : prompt.text,
           skills: selected.some((candidate) => candidate.id === id)
             ? selected
             : [...selected, { id }],
@@ -389,10 +393,45 @@ export function readReviewerAgents(): Record<string, ReviewerAgentDeclaration> {
   )
 }
 
+export function readPackagedAgents(): Record<string, ReviewerAgentDeclaration> {
+  return {
+    ...readReviewerAgents(),
+    "kazforge-implementer": readAgentFile("kazforge-implementer"),
+  }
+}
+
+export function implementationCoordinatorPrompt(request: string): string {
+  return `Coordinate implementation; do not author the change in this parent session.
+The request below must explicitly authorize implementation. A completed plan, approved design or
+review alone is not authorization. If the active session prohibits implementation, report that the
+user must switch agents; do not bypass that restriction through delegation.
+Before launching, resolve the requested outcome and acceptance intent. Assemble and display a
+reviewable handoff with: the explicit implementation authorization and scope; outcome; acceptance
+intent; actual supplied plan content or an unambiguous accessible reference (not a summary in its
+place); accepted design decisions; material constraints; relevant repository evidence references;
+repository location and known pre-existing changes; and the expected completion report. Explicitly
+mark optional inputs not supplied. No formal plan or artifact is required. Do not transmit the whole
+planning conversation, rejected alternatives, unrelated skills or authoring reasoning. If essential
+context is missing or material choices remain unresolved, ask the user before launching.
+Use the native subagent tool in foreground with agent kazforge-implementer and the complete handoff
+as its prompt. Do not hardcode a model. Do not send an empty task or rely on child access to this chat.
+If the agent/tool is unavailable or fails, report the limitation; do not implement here as fallback.
+The child follows the implementation skill and returns its result here. Material deviations require
+a user decision and explicit authorization of the revised scope before continuing.
+On completion, retain the outcome, acceptance intent and agreed plan/design decisions for the
+existing independent implementation review. Supply repository access and the reported diff boundary
+for independent inspection, not the child's reasoning or conclusions. Follow the implementation
+skill's existing bounded review procedure in this parent; the worker must not start its own review.
+Commit, push, merge, pull requests and tracker mutations remain separate authorized actions.
+
+Implementation request:
+${request}`
+}
+
 function readAgentFile(agent: string): ReviewerAgentDeclaration {
   const path = fileURLToPath(new URL(`agents/${agent}.md`, packagedRoot))
-  const { data } = matter(readFileSync(path, "utf8"))
-  return data as ReviewerAgentDeclaration
+  const { data, content } = matter(readFileSync(path, "utf8"))
+  return { ...data, system: content.trim() || undefined } as ReviewerAgentDeclaration
 }
 
 function readSkill(id: string): Skill.Info {

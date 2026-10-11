@@ -44,7 +44,23 @@ an action or verification that did not happen. Report what was not run and the a
 2. Read a supplied plan or approach as orientation only; divergence from it is not failure by
    itself.
 3. Investigate before asking: repository state, relevant guidance, contracts, and affected code and
-   tests answer most questions.
+    tests answer most questions.
+
+## Delegated execution
+
+Direct use of this skill remains valid without a plugin, child agent or formal plan. When acting as
+a coordinator with an available dedicated implementation worker, first obtain explicit implementation
+authorization and resolve material decisions. Give the worker the outcome, acceptance intent, actual
+supplied plan text or an accessible unambiguous reference, accepted design decisions, constraints,
+repository evidence references and known pre-existing changes. Mark optional context not supplied;
+never replace a detailed supplied plan with a vague summary or forward the entire planning chat.
+
+A worker must stop if essential inputs are missing or a material deviation needs a decision. Return
+the blocker to the coordinator rather than silently redesigning. On completion, return changed paths
+and the inspected initial/final diff boundary, including pre-existing and untracked changes, decisions
+and deviations, checks actually executed and their outcomes, skipped checks and unresolved questions.
+The coordinator owns independent review and user decisions. A delegated worker must not launch its
+own review or perform separately authorized commit, push, merge, PR or tracker actions.
 
 ## Implement the smallest coherent change
 
@@ -75,8 +91,10 @@ the result as unverified rather than assuming it passed.
 ## Request independent implementation review
 
 When the environment can run an independent review context, request it using the separate
-`implementation-review` skill. Pass the requested outcome and acceptance intent directly; a plan is
-optional context at most.
+`implementation-review` skill. Pass the requested outcome and acceptance intent directly, plus any
+approved plan and accepted design decisions as agreed-intent evidence, not incidental correctness
+requirements. Pass the diff boundary for independent inspection, not implementation reasoning or
+conclusions. A supplied plan remains optional.
 
 Fresh context that did not author the change is the desired assurance property, not a required
 subagent or session mechanism. Use whatever isolation the environment allows, and state the
