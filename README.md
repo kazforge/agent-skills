@@ -184,3 +184,6 @@ Run `npm test` and `npm run typecheck` after changes. For a manual plugin check
 without setup links, confirm all nine skills and commands appear through
 `opencode api get /api/skill` and `opencode api get /api/command` once a session
 exists, then invoke a Core command with a sample request.
+
+See the [installation verification record](docs/installation-verification.md)
+for the live Git-package checks and their limitations.

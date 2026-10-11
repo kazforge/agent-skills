@@ -12,6 +12,7 @@
     "agents",
     "skills",
     "commands",
+    "docs/installation-verification.md",
     "README.md"
   ],
   "scripts": {
