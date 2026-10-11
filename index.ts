@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
 import matter from "gray-matter"
@@ -233,7 +233,7 @@ export interface CommandRuntime {
 export default Plugin.define({
   id: "kazforge.agent-skills",
   async setup(ctx) {
-    const skills = readCoreSkills()
+    const skills = readPackagedSkills()
     const agents = readReviewerAgents()
     const descriptions = Object.fromEntries(
       reviewerWorkflows.flatMap((workflow) => {
@@ -257,7 +257,7 @@ export default Plugin.define({
     await ctx.skill.transform((editor) => {
       for (const skill of skills) {
         if (editor.get(skill.id)) {
-          // Refresh directory-sourced copies (e.g. setup.sh links) regardless of load order.
+          // Refresh directory-sourced copies regardless of load order.
           editor.update(skill.id, (draft) => {
             draft.name = skill.name
             draft.description = skill.description
@@ -305,7 +305,7 @@ export default Plugin.define({
     }
 
     await ctx.command.transform((editor) => {
-      for (const command of coreCommands(skills, runtime)) {
+      for (const command of [...coreCommands(skills, runtime), ...supportCommands(runtime)]) {
         editor.add(command)
       }
     })
@@ -314,6 +314,44 @@ export default Plugin.define({
 
 export function readCoreSkills(): Skill.Info[] {
   return coreWorkflowIds.map((id) => readSkill(id))
+}
+
+export function readPackagedSkills(): Skill.Info[] {
+  return readdirSync(new URL("skills/", packagedRoot), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((entry) => readSkill(entry.name))
+}
+
+// Packaged support wrappers only need their literal prompt and $ARGUMENTS.
+// This is not a general OpenCode command-template interpreter.
+export function supportCommands(runtime: CommandRuntime): CommandDefinition[] {
+  return readdirSync(new URL("commands/", packagedRoot))
+    .filter((file) => file.endsWith(".md"))
+    .sort()
+    .map((file) => {
+      const { data, content } = matter(
+        readFileSync(new URL(`commands/${file}`, packagedRoot), "utf8"),
+      )
+      const template = content.trim()
+      const id = file.slice(0, -3)
+      return {
+        name: id,
+        description: data.description,
+        execute: async ({ sessionID, prompt, delivery }) => {
+          const text = template.includes("$ARGUMENTS")
+            ? template.replaceAll("$ARGUMENTS", () => prompt.text)
+            : [template, prompt.text].filter(Boolean).join("\n\n")
+          const selected = prompt.skills ?? []
+          await runtime.prompt({
+            ...prompt, sessionID, text, delivery,
+            skills: selected.some((candidate) => candidate.id === id)
+              ? selected
+              : [...selected, { id }],
+          })
+        },
+      }
+    })
 }
 
 export function coreCommands(

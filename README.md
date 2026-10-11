@@ -1,23 +1,22 @@
 # Agent Skills
 
-[`kazforge/agent-skills`](https://github.com/kazforge/agent-skills) provides small,
-reusable engineering workflows for coding agents. These are instructions, not a
-workflow engine or orchestration framework.
+Reusable engineering workflows for OpenCode: planning, design and code review,
+implementation, and supporting tools. Skills remain readable Markdown and can
+be used independently. They follow each repository's own rules and build commands.
 
 ## Workflows
 
-Core skills are repository-agnostic and independently usable, not mandatory
-workflow stages.
+Use workflows independently; they are not mandatory stages.
 
 | Core skill | Purpose |
 | --- | --- |
-| [implementation-planning](skills/implementation-planning/SKILL.md) | Develop a repository-grounded approach for one implementation increment. |
-| [design-review](skills/design-review/SKILL.md) | Challenge a design against repository contracts and simpler alternatives. |
-| [plan-review](skills/plan-review/SKILL.md) | Assess executability, material gaps and harmful over-specification. |
-| [implementation](skills/implementation/SKILL.md) | Make the smallest coherent change, verify it and request independent review when supported. |
-| [implementation-review](skills/implementation-review/SKILL.md) | Judge the actual change against the requested outcome, acceptance intent and repository contracts. |
+| [implementation-planning](skills/implementation-planning/SKILL.md) | Plan a repository-grounded change. |
+| [design-review](skills/design-review/SKILL.md) | Challenge a design and consider simpler alternatives. |
+| [plan-review](skills/plan-review/SKILL.md) | Check whether a plan is executable. |
+| [implementation](skills/implementation/SKILL.md) | Implement and verify a requested change. |
+| [implementation-review](skills/implementation-review/SKILL.md) | Review a change against its requested outcome. |
 
-Optional support skills may depend on particular tools or conventions:
+Support skills may require external tools; check their instructions before use.
 
 | Support skill | Purpose |
 | --- | --- |
@@ -26,37 +25,73 @@ Optional support skills may depend on particular tools or conventions:
 | [address-pr-comments](skills/address-pr-comments/SKILL.md) | Assess and address GitHub PR review comments. |
 | [pr-quality-triage](skills/pr-quality-triage/SKILL.md) | Investigate PR CI and Sonar findings and fix applicable issues. |
 
-## Product and architecture boundary
+## Install
 
-Consumer repositories own engineering truth: architecture, contracts, build
-commands, CI gates, tests and documentation policy. Skills discover and follow
-that guidance; they do not replace it. The user or work item supplies the
-requested outcome and acceptance intent. No consumer repository must install,
-vendor or reference this collection for correctness.
-
-**Use native declarative OpenCode capabilities for definitions. Use TypeScript
-only for runtime behavior or safety that cannot be expressed cleanly declaratively.**
-
-| Concern | Owner |
-| --- | --- |
-| Workflow semantics | `skills/<name>/SKILL.md` |
-| OpenCode agent mechanics | `agents/<agent-id>.md` |
-| Plugin registration, fresh reviewer sessions and permission safety | `index.ts` |
-| Optional support command wrappers | `commands/*.md` |
-| Local symlink installation | `setup.sh` |
-
-Core and support are documented roles in the same flat skills directory, not
-separate registries. Command and reviewer descriptions come from skill frontmatter.
-
-## Install and use with OpenCode
-
-From this checkout, install dependencies:
+Install globally with OpenCode V2; no consumer-repository setup is needed:
 
 ```sh
-npm install
+opencode plugin add github:kazforge/agent-skills
+opencode service restart
+opencode plugin list
 ```
 
-Point an `opencode.jsonc` at the checkout directory, then restart OpenCode:
+## Use
+
+Each skill has a slash command with the same name:
+
+```text
+/implementation-planning Add retry handling to the import job
+/branch-name
+```
+
+Arguments are optional. Planning and review do not authorize implementation.
+
+Review commands start a fresh child session with the matching reviewer:
+
+| Agent ID | Role |
+| --- | --- |
+| `kazforge-design-reviewer` | Design review |
+| `kazforge-plan-reviewer` | Plan review |
+| `kazforge-implementation-reviewer` | Implementation review |
+
+Reviewer profiles restrict editing; implementation-review verification commands
+require approval. Configure reviewer models through OpenCode's native agent
+settings, or leave them unset to inherit the session model. If a review cannot
+start independently, the command reports the limitation and offers a manual fallback.
+
+## Update and remove
+
+Update:
+
+```sh
+opencode plugin check
+opencode plugin update github:kazforge/agent-skills
+opencode service restart
+```
+
+Remove:
+
+```sh
+opencode plugin remove github:kazforge/agent-skills
+opencode service restart
+```
+
+To pin a revision, install `github:kazforge/agent-skills#<full-commit-sha>`.
+Pinned commits are skipped by updates; remove the exact target shown by
+`opencode plugin list` before installing another revision.
+
+## Migrate from setup.sh
+
+Install the plugin instead of using the removed symlink installer. Inspect old
+entries in `~/.config/opencode/skills/`, `~/.config/opencode/command/`,
+`~/.cursor/skills/` and `~/.agents/skills/`. Use `test -L` and `readlink` to confirm
+each link, including broken links, targets the old checkout; remove only those
+links with `unlink`. Preserve real files, unrelated links and destination directories.
+Remove an old checkout plugin entry if switching to Git installation, then restart.
+
+## Contributing
+
+Run `npm ci`, then load the checkout through `opencode.jsonc` and restart OpenCode:
 
 ```jsonc
 {
@@ -65,78 +100,14 @@ Point an `opencode.jsonc` at the checkout directory, then restart OpenCode:
 }
 ```
 
-The plugin registers all five Core skills and commands named after them:
-`/implementation-planning`, `/design-review`, `/plan-review`, `/implementation`
-and `/implementation-review`.
+Do not load the checkout and Git package together. Restart after local changes;
+package updates skip local paths. To remove it, delete its plugin entry and restart.
 
-```text
-/implementation-planning Add retry handling to the import job
-```
+Keep workflow instructions in `skills/<name>/SKILL.md` with `name` and
+`description` frontmatter. Keep skills repository-agnostic and list them here.
+Use native Markdown for definitions and TypeScript only for necessary runtime glue.
+Core workflows need an entry in `index.ts`; reviewers also need an `agents/*.md`
+file and mapping. Support wrappers live in `commands/`, named after their skills;
+do not add duplicate Core wrappers.
 
-Arguments are optional; the skill establishes missing task context. No tracker
-is required. Planning and review do not authorize implementation.
-
-### Reviewer agents
-
-The plugin registers these as OpenCode subagents:
-
-| Stable agent ID | Repository access |
-| --- | --- |
-| `kazforge-design-reviewer` | Inspect only |
-| `kazforge-plan-reviewer` | Inspect only |
-| `kazforge-implementation-reviewer` | Inspect, plus verification commands with per-command approval |
-
-Review commands start a fresh child session with the matching reviewer agent.
-Only the requester's text, attachments and the corresponding review skill are
-passed; authoring history, conclusions and other selected skills are excluded.
-Reviewers retain normal OpenCode model inheritance.
-
-Reviewers cannot mutate the repository, access secrets, delegate or reach
-external systems. Host permissions and saved approvals do not widen the review
-session's declared profile; verification commands still require explicit approval.
-
-If a reviewer is unavailable or its session cannot be created or receive the
-request, the command reports the limitation instead of reviewing in the authoring
-session. Follow the review skill's fresh-session fallback.
-
-### Local skill and support-command linking
-
-To expose all skills, including optional support skills, run:
-
-```sh
-bash setup.sh
-```
-
-The script links skills into `~/.config/opencode/skills/`, `~/.cursor/skills/`
-and `~/.agents/skills/`, and support command wrappers into
-`~/.config/opencode/command/`. It creates destination directories and replaces
-same-named symlinks; inspect existing entries before running it. Keep the
-checkout at its linked location and restart OpenCode after changes.
-
-The OpenCode plugin does not require these links for Core workflows. Read each
-skill's tool requirements before using it.
-
-## Contributing and maintenance
-
-Add skills at `skills/<name>/SKILL.md` with descriptive `name` and `description`
-frontmatter, and list their Core or support role here. Keep Core instructions
-repository-agnostic; do not assume a stack, tracker, harness launcher or scratch
-path. Prefer small instructional changes backed by real use.
-
-Keep agent files mechanical; review criteria and output contracts belong in the
-skills. New Core workflows need an entry in `index.ts`; review workflows also
-need an agent file and reviewer mapping. Do not introduce a registry, schema,
-DSL, code generator or orchestration framework.
-
-OpenCode's shared command registry replaces earlier same-named definitions.
-Keep Core command names aligned with skill IDs, and do not add Core wrappers in
-`commands/`; wrappers are only for optional support skills.
-
-Keep the plugin entrypoint at the root `index.ts` for OpenCode directory loading.
-Packaged definitions require plugin registration because native discovery does
-not load them from inside a plugin package.
-
-Run `npm test` and `npm run typecheck` after changes. For a manual plugin check
-without setup links, confirm the five Core skills and commands appear through
-`opencode api get /api/skill` and `opencode api get /api/command` once a session
-exists, then invoke a Core command with a sample request.
+Run `npm test` and `npm run typecheck` before submitting changes.

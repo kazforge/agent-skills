@@ -7,7 +7,7 @@ import { Skill } from "@opencode/plugin"
 import { Session } from "@opencode/schema"
 
 import type { CommandRuntime, ReviewInvocation } from "../index.ts"
-import { coreCommands, readCoreSkills } from "../index.ts"
+import { coreCommands, readCoreSkills, readPackagedSkills, supportCommands } from "../index.ts"
 
 const root = new URL("../", import.meta.url)
 
@@ -47,6 +47,62 @@ function recordRuntime(): {
 function stubRuntime(): CommandRuntime {
   return { prompt: async () => {}, review: async () => {} }
 }
+
+test("the package exposes all Core and support skills without setup links", () => {
+  const ids = readPackagedSkills().map((skill) => skill.id).sort()
+  assert.deepEqual(ids, [
+    ...coreSkillIds,
+    "branch-name", "commit-message", "address-pr-comments", "pr-quality-triage",
+  ].sort())
+})
+
+test("support commands use packaged Markdown and preserve request attachments and delivery", async () => {
+  const { prompts, reviews, runtime } = recordRuntime()
+  const commands = supportCommands(runtime)
+  assert.deepEqual(commands.map((command) => command.name), [
+    "address-pr-comments", "branch-name", "commit-message", "pr-quality-triage",
+  ])
+  for (const command of commands) {
+    const files = [{ uri: "file:///notes.md" }]
+    const skills = [{ id: Skill.ID.make("implementation") }]
+    const text = "Review $& and $ARGUMENTS literally"
+    await command.execute({
+      sessionID: Session.ID.make("ses_support"),
+      prompt: { text, files, skills },
+      delivery: "queue",
+    })
+    const sent = prompts.at(-1)!
+    assert.ok(sent.text.includes(text), "arguments are not replacement syntax")
+    assert.ok(sent.text.includes(`\`${command.name}\``))
+    assert.equal(sent.sessionID, "ses_support")
+    assert.deepEqual(sent.files, files)
+    assert.deepEqual(sent.skills, [...skills, { id: command.name }])
+    assert.equal(sent.delivery, "queue")
+    assert.ok(command.description)
+  }
+  assert.equal(reviews.length, 0)
+})
+
+test("support commands accept empty arguments", async () => {
+  const { prompts, runtime } = recordRuntime()
+  await supportCommands(runtime)[0].execute({
+    sessionID: Session.ID.make("ses_support"), prompt: { text: "" }, delivery: "steer",
+  })
+  assert.ok(!prompts[0].text.includes("$ARGUMENTS"))
+  assert.deepEqual(prompts[0].skills, [{ id: "address-pr-comments" }])
+})
+
+test("support commands do not attach an already selected skill twice", async () => {
+  const { prompts, runtime } = recordRuntime()
+  for (const command of supportCommands(runtime)) {
+    const skills = [{ id: Skill.ID.make(command.name) }]
+    await command.execute({
+      sessionID: Session.ID.make("ses_support"), prompt: { text: "", skills }, delivery: "steer",
+    })
+    assert.deepEqual(prompts.at(-1)!.skills, skills)
+    assert.equal(prompts.at(-1)!.delivery, "steer")
+  }
+})
 
 test("Core skills are registered from their packaged files without frontmatter", () => {
   const skills = readCoreSkills()
