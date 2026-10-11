@@ -22,7 +22,7 @@ test("the implementer loads its Markdown instructions without replacing native m
   assert.equal(draft.system, declaration.system)
   assert.match(draft.system!, /Load and follow the implementation/)
   assert.match(draft.system!, /return Blocked/)
-  assert.match(draft.system!, /initial Git boundary/)
+  assert.match(draft.system!, /initial and final diff boundary/)
   assert.equal(declaration.system!.includes("model:"), false)
 })
 
@@ -74,7 +74,7 @@ test("the implementation command coordinates a complete handoff and preserves at
   assert.equal(input.delivery, "queue")
   assert.equal(input.sessionID, "ses_parent")
   for (const required of ["acceptance intent", "actual supplied plan content", "accepted design decisions",
-    "material constraints", "repository evidence", "pre-existing changes", "explicitly authorize",
+    "material constraints", "repository evidence", "pre-existing changes", "explicit request",
     "native subagent tool", "kazforge-implementer", "Do not hardcode a model",
     "do not implement here as fallback", "must switch agents", "not the child's reasoning"]) {
     assert.ok(input.text.includes(required), required)

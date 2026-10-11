@@ -46,18 +46,18 @@ Each skill has a slash command with the same name:
 
 Arguments are optional. Planning and review do not authorize implementation.
 
-`/implementation` stays in the parent to assemble and display a reviewable handoff after explicit
-implementation authorization, then uses OpenCode's native subagent tool with `kazforge-implementer`.
-It passes the outcome, acceptance intent, actual supplied plan or accessible reference, accepted
-decisions, constraints and repository evidence—not the planning transcript. No formal plan is needed.
-If delegation is unavailable, it reports the limitation instead of implementing in the parent.
-Direct use of the portable implementation skill remains available without the plugin.
+`/implementation` stays in the parent. After explicit implementation authorization it assembles a
+reviewable handoff — outcome and acceptance intent, the actual plan or an accessible reference,
+accepted decisions, constraints and repository context — and delegates through OpenCode's native
+subagent tool to `kazforge-implementer`; it never implements in the parent as a fallback. Planning or
+a review alone never authorizes implementation. Configure `agents.kazforge-implementer.model`
+natively, or leave it unset to inherit the parent's model. Direct use of the portable implementation
+skill needs no plugin and no formal plan.
 
-The worker can edit and request approval for verification commands. It returns changed paths and
-diff boundary, decisions/deviations, executed checks and blockers to the parent. Material deviations
-need a user decision; commit/push/merge are separate actions, not worker responsibilities. Configure
-`agents.kazforge-implementer.model` natively, or leave it unset to inherit the parent's model.
-The parent retains approved intent for independent review without forwarding implementation reasoning.
+The worker edits and asks approval before verification commands. It returns the changed paths and
+diff boundary, decisions and deviations, executed checks and blockers; material deviations come back
+for a user decision. Commit, push and merge remain separate authorized actions, and the parent keeps
+the agreed intent for the independent implementation review without forwarding worker reasoning.
 
 Review commands start a fresh child session with the matching reviewer:
 
