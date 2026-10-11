@@ -9,6 +9,7 @@ import {
   applyReviewerPermissionPolicy,
   readCoreSkills,
   readReviewerAgents,
+  resolveReviewerModel,
   reviewContract,
   reviewerPermissionPolicy,
   startReview,
@@ -82,6 +83,7 @@ interface ReviewHarness {
     parentID: string
     agent: string
     title: string
+    model?: unknown
     permissions: readonly PermissionRule[]
   }>
   readonly delivered: Array<{ sessionID: string; contract: ReturnType<typeof reviewContract> }>
@@ -94,6 +96,7 @@ function reviewHarness(overrides: Partial<ReviewContext> = {}): ReviewHarness {
   const notices: ReviewHarness["notices"] = []
   const context: ReviewContext = {
     available: async () => true,
+    model: async () => undefined,
     create: async (input) => {
       created.push(input)
       return { id: "ses_reviewer" }
@@ -212,6 +215,47 @@ test("a review starts in a child reviewer session with only the review contract"
   assert.equal(harness.notices.length, 1)
   assert.match(harness.notices[0].text, /Design Review is running/)
   assert.match(harness.notices[0].text, /ses_reviewer/)
+})
+
+test("the reviewer child session receives a natively resolved model when present", async () => {
+  const model = { providerID: "opencode-go", id: "deepseek-v4-pro" }
+  const harness = reviewHarness({ model: async () => model })
+
+  await startReview(harness.context, "design-review", designInvocation())
+
+  assert.equal(harness.created.length, 1)
+  assert.deepEqual(harness.created[0].model, model)
+})
+
+test("the reviewer child session omits the model when none resolves", async () => {
+  const harness = reviewHarness()
+
+  await startReview(harness.context, "design-review", designInvocation())
+
+  assert.equal(harness.created.length, 1)
+  assert.ok(!("model" in harness.created[0]))
+})
+
+test("reviewer model resolution prefers the agent, then the parent session, then nothing", async () => {
+  const configured = { providerID: "opencode-go", id: "reviewer" }
+  const inherited = { providerID: "opencode-go", id: "parent" }
+
+  assert.deepEqual(
+    await resolveReviewerModel(async () => ({ model: configured }), async () => ({ model: inherited }), "a", "s"),
+    configured,
+  )
+  assert.deepEqual(
+    await resolveReviewerModel(async () => ({}), async () => ({ model: inherited }), "a", "s"),
+    inherited,
+  )
+  assert.deepEqual(
+    await resolveReviewerModel(async () => { throw new Error("agent lookup failed") }, async () => ({ model: inherited }), "a", "s"),
+    inherited,
+  )
+  assert.equal(
+    await resolveReviewerModel(async () => undefined, async () => undefined, "a", "s"),
+    undefined,
+  )
 })
 
 test("pinned session rules keep the reviewer profile against wider host rules", () => {

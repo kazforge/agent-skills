@@ -128,10 +128,13 @@ export interface ReviewInvocation {
 
 export interface ReviewContext {
   readonly available: (agentId: string) => Promise<boolean>
+  /** The reviewer agent's configured model, else the parent session's, else undefined. */
+  readonly model: (agentId: string, parentSessionID: string) => Promise<ReviewerModelRef | undefined>
   readonly create: (input: {
     readonly parentID: string
     readonly title: string
     readonly agent: string
+    readonly model?: ReviewerModelRef
     readonly permissions: readonly PermissionRule[]
   }) => Promise<{ readonly id: string }>
   readonly deliver: (input: {
@@ -140,6 +143,31 @@ export interface ReviewContext {
   }) => Promise<unknown>
   /** Display a notice without prompting the session's agent. */
   readonly notice: (sessionID: string, text: string, description: string) => Promise<unknown>
+}
+
+export interface ReviewerAgentLookup {
+  readonly model?: ReviewerModelRef
+}
+
+/** Native model reference as carried by agent and session configuration. */
+export interface ReviewerModelRef {
+  readonly providerID: string
+  readonly id: string
+  readonly variant?: string
+}
+
+// Programmatic session creation does not apply the agent's configured model or inherit the
+// parent session's model, so resolve it explicitly for the reviewer child session.
+export async function resolveReviewerModel(
+  getAgent: (agentID: string) => Promise<ReviewerAgentLookup | undefined>,
+  getSession: (sessionID: string) => Promise<ReviewerAgentLookup | undefined>,
+  agentId: string,
+  parentSessionID: string,
+): Promise<ReviewerModelRef | undefined> {
+  const reviewer = await getAgent(agentId).catch(() => undefined)
+  if (reviewer?.model !== undefined) return reviewer.model
+  const parent = await getSession(parentSessionID).catch(() => undefined)
+  return parent?.model
 }
 
 export async function startReview(
@@ -174,10 +202,14 @@ export async function startReview(
 
   let sessionID: string
   try {
+    const model = await context.model(role.agentId, invocation.sessionID).catch(() => undefined)
     const session = await context.create({
       parentID: invocation.sessionID,
       title: role.title,
       agent: role.agentId,
+      // Programmatic session creation does not inherit the agent or parent model,
+      // so pass the resolved model explicitly; omit it to keep native defaults.
+      ...(model === undefined ? {} : { model }),
       // Session rules override agent/host rules and replace authoring-session grants.
       permissions: readReviewerAgents()[role.agentId].permissions,
     })
@@ -286,8 +318,14 @@ export default Plugin.define({
                 return false
               }
             },
-            create: async ({ parentID, title, agent, permissions }) => {
-              const session = await ctx.session.create({ parentID, agent, title, permissions })
+            model: (agent, parentSessionID) => resolveReviewerModel(
+              async (agentID) => (await ctx.agent.get({ agentID })).data,
+              (sessionID) => ctx.session.get({ sessionID }),
+              agent,
+              parentSessionID,
+            ),
+            create: async ({ parentID, title, agent, model, permissions }) => {
+              const session = await ctx.session.create({ parentID, agent, title, permissions, model })
               return { id: session.id }
             },
             deliver: async ({ sessionID, contract }) => {
