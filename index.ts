@@ -334,14 +334,21 @@ export function supportCommands(runtime: CommandRuntime): CommandDefinition[] {
         readFileSync(new URL(`commands/${file}`, packagedRoot), "utf8"),
       )
       const template = content.trim()
+      const id = file.slice(0, -3)
       return {
-        name: file.slice(0, -3),
+        name: id,
         description: data.description,
         execute: async ({ sessionID, prompt, delivery }) => {
           const text = template.includes("$ARGUMENTS")
             ? template.replaceAll("$ARGUMENTS", () => prompt.text)
             : [template, prompt.text].filter(Boolean).join("\n\n")
-          await runtime.prompt({ ...prompt, sessionID, text, delivery })
+          const selected = prompt.skills ?? []
+          await runtime.prompt({
+            ...prompt, sessionID, text, delivery,
+            skills: selected.some((candidate) => candidate.id === id)
+              ? selected
+              : [...selected, { id }],
+          })
         },
       }
     })

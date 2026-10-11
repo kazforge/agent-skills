@@ -1,14 +1,19 @@
 import assert from "node:assert/strict"
 import { execFileSync } from "node:child_process"
 import { mkdtempSync, mkdirSync, rmSync, symlinkSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join, resolve, sep } from "node:path"
 import test from "node:test"
-import { fileURLToPath } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 
 test("the packed artifact registers every packaged workflow without checkout asset links", () => {
-  const scratch = mkdtempSync("/tmp/kaz-199-package-")
+  const scratch = mkdtempSync(join(tmpdir(), "kaz-199-package-"))
   const root = fileURLToPath(new URL("../", import.meta.url))
   try {
-    const packed = JSON.parse(execFileSync("npm", [
+    // npm test supplies the CLI script, avoiding Windows .cmd shell quoting.
+    const npmCLI = process.env.npm_execpath
+    const packed = JSON.parse(execFileSync(npmCLI ? process.execPath : "npm", [
+      ...(npmCLI ? [npmCLI] : []),
       "pack", "--ignore-scripts", "--json", "--pack-destination", scratch,
     ], { cwd: root, encoding: "utf8" }))
     // npm releases emit either an array or a package-name-keyed object.
@@ -27,7 +32,7 @@ test("the packed artifact registers every packaged workflow without checkout ass
     symlinkSync(`${root}/node_modules`, `${scratch}/package/node_modules`, "junction")
     mkdirSync(`${scratch}/home`)
     const result = JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e", `
-      const { default: plugin } = await import(${JSON.stringify(`file://${scratch}/package/index.ts`)})
+      const { default: plugin } = await import(${JSON.stringify(pathToFileURL(join(scratch, "package", "index.ts")).href)})
       const skills = new Map(), agents = new Map(), commands = new Map()
       await plugin.setup({
         agent: { transform: async f => f({ update: (id, f) => {
@@ -50,7 +55,9 @@ test("the packed artifact registers every packaged workflow without checkout ass
     assert.equal(result.skills.length, 9)
     assert.equal(result.commands.length, 9)
     assert.equal(result.agents.length, 3)
-    for (const skill of result.skills) assert.ok(skill.path.startsWith(`${scratch}/package/skills/`))
+    for (const skill of result.skills) {
+      assert.ok(resolve(skill.path).startsWith(resolve(scratch, "package", "skills") + sep))
+    }
     for (const agent of result.agents) assert.deepEqual(agent.model, { providerID: "test", model: "override" })
   } finally {
     rmSync(scratch, { recursive: true, force: true })
