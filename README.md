@@ -61,7 +61,8 @@ Review commands start a fresh child session with the matching reviewer:
 | `kazforge-plan-reviewer` | Plan review |
 | `kazforge-implementation-reviewer` | Implementation review |
 
-Reviewers cannot edit; implementation-review shell commands require approval.
+Reviewer agents have no direct edit permission. Implementation-review shell commands
+require approval.
 If an independent review cannot start, the command reports the limitation and
 points to the skill's fresh-session fallback.
 
