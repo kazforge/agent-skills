@@ -207,8 +207,6 @@ export async function startReview(
       parentID: invocation.sessionID,
       title: role.title,
       agent: role.agentId,
-      // Programmatic session creation does not inherit the agent or parent model,
-      // so pass the resolved model explicitly; omit it to keep native defaults.
       ...(model === undefined ? {} : { model }),
       // Session rules override agent/host rules and replace authoring-session grants.
       permissions: readReviewerAgents()[role.agentId].permissions,

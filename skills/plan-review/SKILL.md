@@ -12,23 +12,20 @@ Review executability, not design soundness, which belongs to the separate `desig
 
 ## Inputs
 
-**Requested outcome (required).** What the work must achieve, as supplied by the requester or a
-coordinating layer. A direct request is sufficient; no tracker, issue or formal acceptance
-criteria document is required.
+**Requested outcome (required).** What the work must achieve, supplied by the requester or
+coordinating layer. A direct request is sufficient; no tracker or formal document is required.
 
 **Acceptance intent (required).** How success would be recognized, at the level actually
 supplied. Binary acceptance intent is preferred; when it cannot be stated, report that as a
 finding rather than inventing criteria.
 
-**Plan or approach (required).** Supplied directly as text or as an accessible plan document
-the requester names. Supplied text is sufficient; no persistent plan file, template or fixed
-location is required. The plan need not match what would eventually be built exactly — it is a
-sufficient aid, not a contract.
+**Plan or approach (required).** Supplied text or an accessible document the requester names;
+no persistent file, template or fixed location is required. The plan is an aid, not a contract
+to reproduce the eventual implementation exactly.
 
-**Repository context (required for a grounded review).** Access to the consumer repository's
-current reality: relevant code and tests, ownership and contracts, applicable verification
-commands and engineering rules. Discover only what the plan implicates. Do not assume a stack,
-module layout or build system.
+**Repository context (required for a grounded review).** Relevant code, tests, ownership,
+contracts, verification commands and rules. Discover them from the consumer repository;
+do not assume a stack, layout or build system.
 
 **Execution context.** Inspecting the repository is required; interacting with the requester is
 optional; writing scratch files is optional and never required.
@@ -38,26 +35,22 @@ the missing input rather than reconstructing the plan from conversation memory.
 
 ## Independence
 
-Review is most credible when performed with fresh context that did not author or shape the
-plan, and that receives the plan plus repository access rather than the authoring session's
-conclusions or summary. Treat this as a desired property of the review, not as a required
-harness mechanism: perform the review with whatever isolation the active session allows, and
-state the assurance limit when the review shares context with the plan's author.
+Use fresh context that did not author or shape the plan, receiving the plan and repository
+access rather than authoring conclusions. Independence is a desired property, not a required
+harness mechanism; use available isolation and state any shared-context assurance limit.
 
 ## Fresh-session fallback
 
-When the active session cannot provide an independent reviewer context, hand the review to a
-fresh session instead of reviewing in the authoring context. Start a new session with access
-to the consumer repository and pass only:
+If independent context is unavailable, use a fresh session with repository access instead
+of reviewing in the authoring context. Pass only:
 
 - the review type and skill to follow: plan review;
 - the requested outcome and acceptance intent;
 - the plan or approach as text or an accessible document the reviewer can open;
 - how to return the result: findings and assessment reported in the session, no artifact.
 
-Carry no authoring-session reasoning, conclusions, narrative, hidden state or summarized review
-opinion. The fresh reviewer reads this skill and derives its own conclusions from the plan and
-repository evidence.
+Carry no authoring reasoning, conclusions, narrative, hidden state or summarized opinion.
+The reviewer reads this skill and derives its own conclusions from the plan and repository.
 
 ## Procedure
 
@@ -77,10 +70,9 @@ Review these dimensions in one exhaustive pass:
    finding.
 5. **Contradictions and gaps** — internal inconsistency, missing ordering that makes the
    approach unexecutable, or unstated prerequisites.
-6. **Over-specification (Advisory)** — prescription of harmless local detail: private helper
-   structure, method names, exhaustive file-by-file inventories, routine extraction or control
-   flow, and internal test-helper design. Flag this separately from material gaps; it constrains
-   the implementer without reducing risk.
+6. **Over-specification (Advisory)** — prescribing harmless names, helper structure, file
+   inventories, routine extraction, control flow or test helpers. Flag it separately from
+   material gaps: it constrains the implementer without reducing risk.
 
 If an unresolved architectural choice blocks execution, report it as a concern and point to
 `design-review` instead of resolving it here.

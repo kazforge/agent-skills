@@ -44,20 +44,14 @@ Each skill has a slash command with the same name:
 /branch-name
 ```
 
-Arguments are optional. Planning and review do not authorize implementation.
+Arguments are optional. Planning and review do not authorize implementation; commit,
+push and merge require separate authorization.
 
-`/implementation` stays in the parent. After explicit implementation authorization it assembles a
-reviewable handoff — outcome and acceptance intent, the actual plan or an accessible reference,
-accepted decisions, constraints and repository context — and delegates through OpenCode's native
-subagent tool to `kazforge-implementer`; it never implements in the parent as a fallback. Planning or
-a review alone never authorizes implementation. Configure `agents.kazforge-implementer.model`
-natively, or leave it unset to inherit the parent's model. Direct use of the portable implementation
-skill needs no plugin and no formal plan.
-
-The worker edits and asks approval before verification commands. It returns the changed paths and
-diff boundary, decisions and deviations, executed checks and blockers; material deviations come back
-for a user decision. Commit, push and merge remain separate authorized actions, and the parent keeps
-the agreed intent for the independent implementation review without forwarding worker reasoning.
+`/implementation` delegates an authorized change to `kazforge-implementer`; it
+never implements in the parent as a fallback. The worker asks approval for shell
+commands and returns material decisions to the parent. See the
+[implementation skill](skills/implementation/SKILL.md) for handoff and review rules.
+Direct skill use needs neither the plugin nor a formal plan.
 
 Review commands start a fresh child session with the matching reviewer:
 
@@ -67,10 +61,12 @@ Review commands start a fresh child session with the matching reviewer:
 | `kazforge-plan-reviewer` | Plan review |
 | `kazforge-implementation-reviewer` | Implementation review |
 
-Reviewer profiles restrict editing; implementation-review verification commands
-require approval. Configure reviewer models through OpenCode's native agent
-settings, or leave them unset to inherit the session model. If a review cannot
-start independently, the command reports the limitation and offers a manual fallback.
+Reviewers cannot edit; implementation-review shell commands require approval.
+If an independent review cannot start, the command reports the limitation and
+points to the skill's fresh-session fallback.
+
+Set `agents.<agent-id>.model` to configure a worker or reviewer model; leave it
+unset to inherit the parent's model.
 
 ## Update and remove
 

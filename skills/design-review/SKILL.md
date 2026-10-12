@@ -13,19 +13,17 @@ owns executability. Do not create a plan as part of this review.
 
 ## Inputs
 
-**Design (required).** The design to review, supplied directly as text or as an accessible
-document the requester names. Supplied text is sufficient; no design file, template, tracker
-item or fixed path is required. State the reviewed boundary — which design text and which
-repository evidence were in scope.
+**Design (required).** Supplied text or an accessible document the requester names; no
+file, template, tracker or fixed path is required. State the design and repository evidence
+in scope.
 
 **Requested outcome (recommended).** The outcome and acceptance intent the design is meant to
 serve, at the level actually supplied. When it is missing, check internal coherence and
 repository compatibility only, and say so.
 
-**Repository context (required for a grounded review).** Access to the consumer repository's
-current reality: contributor guidance, architecture and accepted decisions, specifications and
-public contracts, affected code and tests, and ownership boundaries. Discover only what this
-design implicates. Do not assume a stack, module layout, documentation set or build system.
+**Repository context (required for a grounded review).** Relevant guidance, architecture,
+accepted decisions, specifications, public contracts, code, tests and ownership boundaries.
+Discover them from the consumer repository; do not assume a stack, layout or build system.
 
 **Execution context.** Inspecting the repository is required; interacting with the requester is
 optional and enables resolving ambiguity; writing scratch files is optional and never required.
@@ -36,26 +34,22 @@ from conversation memory.
 
 ## Independence
 
-Review is most credible when performed with fresh context that did not author or shape the
-design, and that receives the design plus repository access rather than the authoring session's
-conclusions or summary. Treat this as a desired property of the review, not as a required
-harness mechanism: perform the review with whatever isolation the active session allows, and
-state the assurance limit when the review shares context with the design's author.
+Use fresh context that did not author or shape the design, receiving the design and repository
+access rather than authoring conclusions. Independence is a desired property, not a required
+harness mechanism; use available isolation and state any shared-context assurance limit.
 
 ## Fresh-session fallback
 
-When the active session cannot provide an independent reviewer context, hand the review to a
-fresh session instead of reviewing in the authoring context. Start a new session with access
-to the consumer repository and pass only:
+If independent context is unavailable, use a fresh session with repository access instead
+of reviewing in the authoring context. Pass only:
 
 - the review type and skill to follow: design review;
 - the design source: the design text or an accessible document the reviewer can open;
 - the requested outcome and acceptance intent, when supplied;
 - how to return the result: findings and assessment reported in the session, no artifact.
 
-Carry no authoring-session reasoning, conclusions, narrative, hidden state or summarized review
-opinion. The fresh reviewer reads this skill and derives its own conclusions from the design and
-repository evidence.
+Carry no authoring reasoning, conclusions, narrative, hidden state or summarized opinion.
+The reviewer reads this skill and derives its own conclusions from the design and repository.
 
 ## Procedure
 

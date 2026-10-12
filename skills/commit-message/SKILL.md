@@ -34,59 +34,33 @@ Follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.
 [optional footer(s)]
 ```
 
-### Required elements
-
-- **type** — noun prefix and required colon + space. Must be one of the commitlint type-enum (closed set): `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, `test`. Use `feat` for new features, `fix` for bug fixes.
-- **description** — short imperative summary immediately after the prefix (e.g. `fix: array parsing issue when multiple spaces were contained in string`).
-
-### Optional elements
-
-- **scope** — noun in parentheses for the affected area: `feat(parser): add array support`.
-- **body** — optional why-focused paragraph (1-2 lines).
-- **footers** — blank line after body; git-trailer style (`Refs: #123`, `Reviewed-by: Name`). Use `BREAKING CHANGE: <description>` (or `BREAKING-CHANGE:`) for breaking changes. Footer lines wrap at ≤ 100 chars.
-
-### Breaking changes
-
-Indicate either:
-
-- `!` before the colon: `feat(api)!: remove legacy endpoints`, or
-- footer: `BREAKING CHANGE: environment variables now take precedence over config files`
-
-Both may be used together per the spec.
-
-### Style defaults
-
-Unless the repository's `git log` clearly differs:
-
-- Lowercase type and scope (`type-case`, `scope-case`).
-- Imperative description: "add", "fix", "remove" — not "added" or "adds".
-- Header (type + scope + description) ≤ 100 characters, per commitlint's `header-max-length`.
-- Description must not be sentence-case, start-case, pascal-case, or upper-case (`subject-case`), and has no leading/trailing whitespace or trailing period (`subject-full-stop`).
-- Body and footer lines wrap at ≤ 100 characters (`body-max-line-length`, `footer-max-line-length`); there is no total body-length limit.
-- Blank line between description and body, and between body and footers (`body-leading-blank`, `footer-leading-blank`).
-- Default to a **subject-only** message (single line). Add a brief (1-2 line) why-focused body only when the change's rationale isn't evident from the diff, or the user explicitly asks for more detail.
-- Split mixed-type changes into separate commits/messages when possible.
-
 ## Validate before returning
 
-Self-check the proposal against the commitlint [config-conventional](https://github.com/conventional-changelog/commitlint/tree/master/%40commitlint/config-conventional) rules:
+Self-check against commitlint [config-conventional](https://github.com/conventional-changelog/commitlint/tree/master/%40commitlint/config-conventional).
+Defer to the repository's commitlint config on conflict; otherwise use these defaults,
+matching established Git history where it differs:
 
-- Header ≤ 100 chars; type present, lowercase, in the type-enum; scope lowercase (if used).
-- Description non-empty, lowercase-style, no trailing period, no surrounding whitespace.
-- Blank lines between description/body and body/footers; body and footer lines ≤ 100 chars.
-- `BREAKING CHANGE:` footer or `!` for breaking changes, never both absent.
-
-If the repository defines its own commitlint config (`commitlint.config.*`, `package.json` `commitlint` field), defer to it on conflict.
+- Type is lowercase and one of `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`,
+  `refactor`, `revert`, `style`, `test`; use `feat` for features and `fix` for fixes.
+- Optional scope is a lowercase noun identifying the affected area.
+- Description is non-empty and imperative, not sentence-case, start-case, pascal-case
+  or upper-case, with no surrounding whitespace or trailing period.
+- Header and each body/footer line are ≤ 100 characters; separate header, body and footers
+  with blank lines. There is no total body-length limit.
+- Default to a subject-only message. Add a brief why-focused body only when the diff
+  does not explain the rationale or the user asks for detail.
+- Footers use Git-trailer syntax and are only for trailers or breaking changes.
+  Mark breaking changes with `!` before the colon, a `BREAKING CHANGE:` (or
+  `BREAKING-CHANGE:`) footer, or both.
+- Split mixed-type changes into separate commits/messages when possible.
 
 ## Output format
 
-```markdown
 **Commit:**
-```
+
+```text
 type(scope): description
 ```
-
-Footers only for breaking changes or trailers.
 
 State that nothing was committed or pushed unless the user asked.
 
@@ -96,39 +70,3 @@ State that nothing was committed or pushed unless the user asked.
 - List every changed file in the body.
 - Add a body that restates the diff, exceeds a few lines, or pads with boilerplate.
 - Combine unrelated changes in one message.
-
-## Examples
-
-**Feature with scope**
-
-```
-feat(auth): add refresh token rotation
-```
-
-**With body (why not evident from diff)**
-
-```
-feat(auth): add refresh token rotation
-
-Issuing short-lived access tokens narrows the session hijack window.
-```
-
-**Fix, description only**
-
-```
-fix: prevent duplicate form submission on double-click
-```
-
-**Breaking change**
-
-```
-feat(api)!: rename user profile endpoint
-
-BREAKING CHANGE: `/v1/profile` is now `/v1/users/me`.
-```
-
-**Docs**
-
-```
-docs: correct installation steps for Node 20
-```

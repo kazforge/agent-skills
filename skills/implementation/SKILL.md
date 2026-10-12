@@ -8,34 +8,22 @@ description: Implements a requested outcome as the smallest coherent change, dis
 Implement the **requested outcome and acceptance intent**. Judge success by the result in the
 repository, not by adherence to a plan.
 
-Discover architecture, ownership, engineering rules, verification, documentation obligations and
-completion expectations from the consumer repository. Never assume a stack, build tool, file layout,
-tracker or scratch path.
-
 Implementation begins only when the requester explicitly asks for the change. A plan, planning
 output or review verdict is context, never authorization.
 
 ## Context
 
-**Work context (required).** The requested outcome and acceptance intent at the level actually
-supplied. A direct request is sufficient; no tracker, issue or formal acceptance criteria document
-is required. Tracker IDs and status are optional orientation only and never correctness authority.
-Do not infer requested work from tracker absence, Git history, branch names or existing plan files.
+**Work context (required).** The requested outcome and acceptance intent as supplied. A direct
+request is sufficient; tracker IDs and status are optional orientation, not correctness authority.
+Do not infer work from tracker absence, Git history, branch names or existing plan files.
 
-**Repository context (required).** Access to current repository reality: current code and tests,
-repository-provided rules and canonical documentation, relevant contracts and architecture, and the
-verification the repository provides. Discover only what the change implicates. Do not require a
-specific instruction file such as `AGENTS.md`, a documentation layout or a build system.
+**Repository context (required).** Relevant code, tests, rules, canonical documentation,
+contracts, architecture, ownership, verification and completion obligations. Discover them from
+the consumer repository; do not assume a stack, build tool, layout, tracker, scratch path or `AGENTS.md`.
 
-**Execution context.** Capabilities of the active session:
-
-- inspecting the repository is required;
-- executing commands is optional and enables running verification;
-- interacting with the requester is optional and enables resolving material decisions;
-- an independent review context may or may not be available.
-
-Missing capability removes or weakens only the affected behavior; never simulate it and never claim
-an action or verification that did not happen. Report what was not run and the assurance limit.
+**Execution context.** Repository inspection is required; commands, requester interaction and
+independent review may be unavailable. Report unavailable capabilities, checks not run and assurance
+limits; never simulate an action or verification.
 
 ## Resolve the requested work
 
@@ -43,8 +31,7 @@ an action or verification that did not happen. Report what was not run and the a
    intent is ambiguous.
 2. Read a supplied plan or approach as orientation only; divergence from it is not failure by
    itself.
-3. Investigate before asking: repository state, relevant guidance, contracts, and affected code and
-    tests answer most questions.
+3. Establish discoverable facts before asking, using repository state and the relevant evidence.
 
 ## Delegated execution
 
@@ -58,10 +45,8 @@ review. The coordinator owns user decisions and the independent review.
 
 ## Implement the smallest coherent change
 
-Satisfy the request with the smallest coherent change against current repository reality. Local
-freedom is expected for harmless details — private helper names, routine extraction, ordinary
-control flow, internal test structure — when they do not affect the requested outcome or repository
-contracts.
+Make the smallest coherent change. Adapt harmless names, routine extraction, control flow and
+test structure freely when they do not affect the outcome or repository contracts.
 
 Preserve requester control over material change. If repository reality contradicts a material
 product or design decision — architecture, ownership or source of truth, public or observable
@@ -72,10 +57,8 @@ decision and report exactly what must be decided.
 
 ## Discover and execute verification
 
-Discover the applicable repository-provided verification for the change: build or compile, tests,
-formatting or linting, architecture checks, documentation obligations and anything else the
-repository defines. Use the repository's own commands and rules; never substitute commands from
-this skill or another repository.
+Use the repository's own applicable checks: build, tests, formatting, linting, architecture,
+documentation and other obligations. Never substitute another repository's commands or this skill's.
 
 Execute every applicable check the active environment supports, narrowest useful set first, before
 presenting the change as complete. Record the commands and their outcomes. A local check is
@@ -91,9 +74,8 @@ requirements. Pass the diff boundary for independent inspection, not implementat
 conclusions. A supplied plan remains optional.
 
 Fresh context that did not author the change is the desired assurance property, not a required
-subagent or session mechanism. Use whatever isolation the environment allows, and state the
-assurance limit when the review shares context with the implementation. When the environment
-cannot run an independent context, use the fresh-session fallback in `implementation-review`.
+subagent or session mechanism. Use available isolation and state any shared-context assurance
+limit. If independent context is unavailable, use the fresh-session fallback in `implementation-review`.
 
 If the review reports material findings:
 

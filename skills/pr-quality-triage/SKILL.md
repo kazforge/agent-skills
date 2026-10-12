@@ -70,19 +70,15 @@ Sonar MCP can still inspect CI; do not require a particular MCP installation.
      `package.json`
    - CI workflow config (`sonar.projectKey`, `SONAR_PROJECT_KEY`, equivalent)
    - `search_my_sonarqube_projects` when the key is still unknown
-4. If Sonar MCP is missing, say so and continue with CI evidence. If neither CI nor Sonar data can
-   be read, stop and report the limitation.
+4. Missing Sonar MCP is not a repository failure; report it and continue with CI evidence,
+   which remains sufficient authority. If neither CI nor Sonar data can be read, stop and
+   report the limitation.
 
 ## Phase 4 — Gather evidence
 
-For each finding, collect enough to judge it against **current** source:
-
-- rule key and name
-- message / check output
-- file and location
-- surrounding source context at that location
-- whether the current file still contains the reported code
-- rule documentation/details when a rule lookup tool exists
+For each finding, collect its rule key/name, message or check output, file/location,
+current surrounding source and rule details when lookup is available. Confirm the
+reported code is still present.
 
 Skip findings whose file/location cannot be mapped onto the current tree; classify them stale or
 report that evidence is insufficient.
@@ -98,8 +94,7 @@ Classify every finding:
 - **Apparently inapplicable** — the reported rule does not fit this code, or fixing it “to satisfy
   the analyzer” would change intended architecture or behavior.
 
-A technically valid warning can still be a non-issue for this change. Do not optimize blindly
-for static analysis.
+A valid warning can be a non-issue for this change; do not optimize blindly for static analysis.
 
 ## Phase 6 — Act
 
@@ -131,8 +126,8 @@ Report:
 - local verification commands and outcomes
 - residual risks, including findings left for humans
 
-Do **not** claim that Sonar, the Quality Gate, or zero-new-code CI is complete because this skill
-ran. After fixes are pushed, CI is the authority.
+Local triage does not establish merge readiness or completion of Sonar, the Quality Gate,
+or zero-new-code CI. After fixes are pushed, fresh CI is the completion authority.
 
 If code changed, propose a Conventional Commits message from the diff (use `commit-message` when
 available). Ask before commit/push unless yolo mode is on. After push, treat the next CI/Sonar run
@@ -140,15 +135,11 @@ as the completion signal — optionally re-enter this skill once that analysis i
 
 ## Do not
 
-- Mutate Sonar issue state, assignments, severities, tags, comments-as-resolution, or equivalent.
-- Mark issues false-positive, won't-fix, accepted, confirmed-as-resolved, or reopen/close them
-  through Sonar APIs or MCP tools (`change_sonar_issue_status`, `change_security_hotspot_status`,
-  or any successor).
-- Change quality profiles, quality gates, project administration, webhooks, or other Sonar
-  configuration.
+- Mutate Sonar issues or hotspots through APIs/MCP: state (including false-positive,
+  won't-fix, accepted, resolved, reopened or closed), assignments, severities, tags or
+  comments-as-resolution. Do not change Sonar configuration, including profiles, gates,
+  project administration or webhooks.
 - Handle GitHub review comments, review-bot threads, replies or thread resolution; those belong
   to `address-pr-comments`.
 - Encode one repository's paths, Sonar project keys, tracker IDs, or maintainer usernames into
   this skill's behavior.
-- Treat a missing Sonar MCP installation as a repository failure. CI remains sufficient authority.
-- Claim merge readiness from local triage alone.
