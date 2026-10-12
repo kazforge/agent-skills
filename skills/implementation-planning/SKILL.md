@@ -5,44 +5,28 @@ description: Turns a requested outcome into a repository-grounded implementation
 
 # Implementation Planning
 
-Produce a grounded approach for one coherent implementation increment. This skill is
-repository-agnostic: discover architecture, verification commands, tests, documentation
-ownership and engineering policy from the consumer repository instead of assuming names,
-paths or a stack.
+Produce a repository-grounded approach for one coherent implementation increment.
 
 ## Context
 
-**Work context (required).** The requested outcome and the acceptance intent at the level
-actually supplied. A direct request is sufficient; no tracker, issue or formal acceptance
-criteria document is required. Tracker IDs, status and decomposition metadata are optional
-orientation only and never correctness authority. Do not infer requested work from tracker
-absence, Git history, branch names or existing plan files.
+**Work context (required).** The requested outcome and acceptance intent as supplied.
+A direct request is sufficient; tracker IDs, status and decomposition metadata are
+optional orientation, not correctness authority. Do not infer work from tracker absence,
+Git history, branch names or existing plan files.
 
-**Repository context (required).** Access to authoritative repository evidence: current
-code and tests, repository-provided rules and canonical documentation, relevant contracts
-and architecture, and the applicable verification commands. Discover only what is relevant
-to the work. Do not require a specific file such as `AGENTS.md`, a documentation layout, or
-a build system. Repository evidence overrides plans and tracker metadata when they disagree
-about current reality.
+**Repository context (required).** Current code, tests, rules, canonical documentation,
+contracts, architecture, documentation ownership and verification commands relevant to the work.
+Discover them from the consumer repository; do not assume a stack, layout, build system or `AGENTS.md`.
+Repository evidence overrides plans and tracker metadata about current reality.
 
-**Execution context.** Capabilities of the active session:
-
-- inspecting the repository is required for a repository-grounded result;
-- executing commands is optional and enables bounded spikes;
-- interacting with the requester is optional and enables resolving material decisions;
-- writing scratch files is optional and enables persisting a working plan.
-
-Missing capability removes or weakens only the affected behavior; never simulate it and
-never claim an action or verification that did not happen. If the requester cannot be
-asked interactively, establish every discoverable fact first, then stop at the first
-unresolved material decision and report exactly what must be decided rather than guessing.
-If repository access is unavailable, planning cannot be repository-grounded; report that
-limitation instead of inventing a result.
+**Execution context.** Repository inspection is required; commands, requester interaction
+and scratch writes are optional. Report unavailable capabilities and actions not performed;
+never simulate them. Without repository access, report that planning cannot be grounded.
 
 ## Resolve the requested work
 
-1. Resolve an explicit requested outcome and acceptance intent from the requester. A
-   coordinating layer or tracker may supply this context; planning must work without one.
+1. Resolve the requested outcome and acceptance intent from the requester or coordinating
+   layer. A tracker is optional.
 2. Decide whether the work is **one coherent implementation increment**: it can be
    implemented and independently reviewed as one change against repository reality that
    exists now.
@@ -69,55 +53,29 @@ source of truth, public or observable behavior, compatibility, migration, bounda
 components, significant scope trade-offs, and acceptance intent. Ask only material
 questions, briefly state the trade-off, and recommend an answer with rationale.
 
-Leave harmless local choices to the implementer: private helper names, routine extraction,
-ordinary control flow, local sequencing, exhaustive file inventories, and internal
-test-helper structure — anything that does not materially affect the requested outcome or
-repository contracts.
+If requester interaction is unavailable, establish the discoverable facts, then stop at
+the first unresolved material decision and report what must be decided.
+
+Leave harmless local choices to the implementer: names, routine extraction, control flow,
+sequencing, file inventories and test-helper structure that do not affect the outcome or contracts.
 
 ## Optional working plan
 
-A working plan is optional, non-authoritative, disposable working memory, not backlog,
-architecture truth or a merge gate. Use one when it helps reasoning or context transport;
-its absence is not a planning failure. It need not match the final implementation.
-
-Keep the plan in the session by default. Persist it only when useful and only when the
-execution environment allows scratch writes. No fixed path, directory convention or
-`.gitignore` change is required, and a location outside the repository is fine.
-
-When a plan helps, a minimal illustrative shape is:
-
-```markdown
-# <title>
-
-## Goal
-
-## Current understanding
-
-## Approach
-
-## Constraints and checks
-
-## Open questions
-```
-
-Omit any section that adds nothing. Do not add a status field or a plan dependency graph.
+Keep the plan in-session by default. It is optional, disposable working memory, not
+backlog, architecture truth or a merge gate, and need not match the final implementation.
+Persist it only when useful and scratch writes are allowed; no fixed path or `.gitignore`
+change is required, and an external location is fine. Include only useful content; do not
+add a status field or dependency graph.
 
 ## Bounded planning spikes
 
-A spike is disposable executable work that answers one concrete technical question; the
-answer is the output, not the code. Use one only when the question is explicit, execution
-materially reduces uncertainty compared with reasoning or static inspection, and command
-execution is available.
-
-Before running, state the technical question and the cheapest decisive experiment. A spike
-may compile or run small experiments and inspect library or framework behavior, must not
-modify production code, and needs no production-quality architecture, tests or docs. Stop
-as soon as the question is answered or the experiment can no longer answer it, and record
-only the resulting fact when it matters later. Delete the spike when it is no longer useful.
-
-If execution is unavailable, report the limitation rather than working around it. If a spike
-stops answering its question and starts building production behavior, stop the spike and
-return to planning.
+A spike answers one explicit technical question when execution is available and materially
+reduces uncertainty beyond static inspection. State the question and cheapest decisive
+experiment before running. It may compile small experiments or inspect library behavior,
+but must not modify production code or turn into implementation; it needs no production
+architecture, tests or docs. Stop when answered, when the experiment cannot answer it, or
+when it starts building production behavior. Record only useful resulting facts and delete
+the spike when no longer useful. If execution is unavailable, report the limitation.
 
 ## Implementation authorization
 

@@ -13,9 +13,8 @@ acceptance intent. Divergence from it is not a defect by itself. Fixes require a
 
 ## Inputs
 
-**Requested outcome (required).** What the change must achieve, as supplied by the requester or a
-coordinating layer. A direct request is sufficient; no tracker, issue or formal acceptance criteria
-document is required.
+**Requested outcome (required).** What the change must achieve, supplied by the requester or
+coordinating layer. A direct request is sufficient; no tracker or formal document is required.
 
 **Acceptance intent (required).** How success would be recognized, at the level actually supplied.
 If either the requested outcome or the acceptance intent is missing, the verdict is **Blocked**. Do
@@ -27,31 +26,27 @@ when available; otherwise establish the boundary from repository state, such as 
 plus the branch against an explicit base. State the inspected boundary and any unexamined areas.
 Never imply unexamined code was reviewed.
 
-**Repository context (required for a grounded review).** Access to the consumer repository's
-current reality: contributor guidance, architecture and accepted decisions, specifications and
-public contracts, affected code and tests, and the applicable verification. Discover only what the
-change implicates. Do not assume a stack, module layout, documentation set or build system.
+**Repository context (required for a grounded review).** Relevant guidance, architecture, accepted
+decisions, specifications, public contracts, code, tests and verification. Discover them from the
+consumer repository; do not assume a stack, layout or build system.
 
-**Execution context.** Inspecting the repository is required; executing commands is optional and
-enables running applicable checks; interacting with the requester is optional; writing scratch files
-is optional and never required.
+**Execution context.** Repository inspection is required; commands, requester interaction and
+scratch writes are optional.
 
 If the change set or the repository evidence needed to judge the change is unavailable, report
 **Blocked** with the missing input rather than guessing.
 
 ## Independence
 
-Review is most credible when performed with fresh context that did not author or shape the change,
-and that receives the requested outcome, acceptance intent and repository access rather than the
-authoring session's conclusions. Treat this as a desired property of the review, not a required
-harness mechanism: use whatever isolation the active session allows, and state the assurance limit
-when the review shares context with the implementation.
+Use fresh context that did not author or shape the change, receiving the requested outcome,
+acceptance intent and repository access rather than authoring conclusions. Independence is a
+desired property, not a required harness mechanism; use available isolation and state any
+shared-context assurance limit.
 
 ## Fresh-session fallback
 
-When the active session cannot provide an independent reviewer context, hand the review to a fresh
-session instead of reviewing in the authoring context. Start a new session with access to the
-consumer repository and pass only:
+If independent context is unavailable, use a fresh session with repository access instead of
+reviewing in the authoring context. Pass only:
 
 - the review type and skill to follow: implementation review;
 - the requested outcome and acceptance intent;
@@ -62,13 +57,10 @@ consumer repository and pass only:
   state for the reviewer to establish it;
 - how to return the result: findings and verdict reported in the session, no artifact.
 
-Carry no authoring-session reasoning, conclusions, narrative, hidden state or summarized review
-opinion. The fresh reviewer reads this skill, establishes the change-set boundary, derives its own
-conclusions from the change and repository evidence.
-
-An approved plan and accepted decisions are permitted intent evidence, not authoring conclusions.
-Do not forward the implementer's reasoning or completion verdict as review authority. Independently
-inspect the diff and verify reported checks rather than assuming the completion report is correct.
+Carry no authoring reasoning, conclusions, narrative, hidden state, summarized opinion or
+implementer verdict. The reviewer reads this skill, establishes the change-set boundary, inspects
+the diff and verifies reported checks independently. Approved plans and accepted decisions are
+intent evidence, not review authority.
 
 ## Procedure
 
