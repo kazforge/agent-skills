@@ -27,7 +27,7 @@
     "@aws-sdk/credential-provider-http": "3.972.74"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.0.0",
     "typescript": "^7.0.0"
   }
 }
